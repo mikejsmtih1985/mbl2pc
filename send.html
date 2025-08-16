@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Send Message to PC</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 2em; }
+        input, button { font-size: 1.2em; }
+    </style>
+</head>
+<body>
+    <h2>mbl2pc Chat</h2>
+    <div id="chat" style="max-width:500px;margin-bottom:1em;"></div>
+    <form id="msgForm" autocomplete="off" style="display:flex;gap:0.5em;">
+        <input type="text" id="msg" placeholder="Type your message" required style="flex:1;">
+        <button type="submit">Send</button>
+    </form>
+    <div id="result" style="margin-top:1em;"></div>
+    <script>
+        // Identify this device (simple, not secure)
+        let sender = localStorage.getItem('mbl2pc_sender') || '';
+        if (!sender) {
+            sender = prompt('Enter your name or device (e.g., Mike, iPhone, PC):') || 'unknown';
+            localStorage.setItem('mbl2pc_sender', sender);
+        }
+
+        async function fetchMessages() {
+            try {
+                const res = await fetch('http://192.168.6.136:8000/messages');
+                const data = await res.json();
+                renderMessages(data.messages);
+            } catch (err) {
+                document.getElementById('chat').innerHTML = '<em>Could not load messages.</em>';
+            }
+        }
+
+        function renderMessages(messages) {
+            const chat = document.getElementById('chat');
+            chat.innerHTML = '';
+            messages.forEach(m => {
+                const div = document.createElement('div');
+                div.className = 'bubble ' + (m.sender === sender ? 'sent' : 'received');
+                div.innerHTML = `<span class="sender">${m.sender}</span><span class="text">${m.text}</span><span class="timestamp">${m.timestamp.replace('T',' ')}</span>`;
+                chat.appendChild(div);
+            });
+            chat.scrollTop = chat.scrollHeight;
+        }
+
+        document.getElementById('msgForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const msg = document.getElementById('msg').value;
+            const resultDiv = document.getElementById('result');
+            try {
+                const res = await fetch('http://192.168.6.136:8000/send?msg=' + encodeURIComponent(msg) + '&sender=' + encodeURIComponent(sender), {
+                    method: 'POST'
+                });
+                const data = await res.json();
+                resultDiv.textContent = data.status || 'Sent!';
+                document.getElementById('msg').value = '';
+                fetchMessages();
+            } catch (err) {
+                resultDiv.textContent = 'Error sending message.';
+            }
+        });
+
+        // Auto-refresh every 2 seconds
+        setInterval(fetchMessages, 2000);
+        fetchMessages();
+    </script>
+    <style>
+        #chat { background: #f5f5f5; padding: 1em; border-radius: 10px; min-height: 200px; max-height: 400px; overflow-y: auto; }
+        .bubble { margin: 0.5em 0; padding: 0.5em 1em; border-radius: 20px; display: flex; flex-direction: column; max-width: 80%; }
+        .sent { background: #d1e7dd; align-self: flex-end; }
+        .received { background: #fff; border: 1px solid #ccc; align-self: flex-start; }
+        .sender { font-size: 0.8em; color: #888; }
+        .text { font-size: 1.1em; margin: 0.2em 0; }
+        .timestamp { font-size: 0.7em; color: #aaa; align-self: flex-end; }
+    </style>
+</body>
+</html>
