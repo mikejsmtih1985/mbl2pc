@@ -16,6 +16,11 @@
         <input type="text" id="msg" placeholder="Type your message" required style="flex:1;">
         <button type="submit">Send</button>
     </form>
+    <form id="imgForm" style="margin-top:0.5em;display:flex;gap:0.5em;align-items:center;">
+        <input type="file" id="imgInput" accept="image/*" style="flex:1;">
+        <button type="submit">Send Image</button>
+    </form>
+    <div id="imgHint" style="font-size:0.9em;color:#888;margin-top:0.2em;">Paste or drag an image here, or use the file picker.</div>
     <div id="result" style="margin-top:1em;"></div>
     <script>
         // Identify this device (simple, not secure)
@@ -32,9 +37,10 @@
             localStorage.setItem('mbl2pc_key', apiKey);
         }
 
+        const API_BASE = window.location.origin;
         async function fetchMessages() {
             try {
-                const res = await fetch('https://mbl2pc.onrender.com/messages?key=' + encodeURIComponent(apiKey));
+                const res = await fetch(API_BASE + '/messages?key=' + encodeURIComponent(apiKey));
                 const data = await res.json();
                 renderMessages(data.messages);
             } catch (err) {
@@ -48,18 +54,106 @@
             messages.forEach(m => {
                 const div = document.createElement('div');
                 div.className = 'bubble ' + (m.sender === sender ? 'sent' : 'received');
-                div.innerHTML = `<span class="sender">${m.sender}</span><span class="text">${m.text}</span><span class="timestamp">${m.timestamp.replace('T',' ')}</span>`;
+                let content = `<span class="sender">${m.sender}</span>`;
+                if (m.image_url && m.image_url !== "") {
+                    content += `<img src="${m.image_url}" style="max-width:200px;max-height:200px;display:block;margin:0.5em 0;border-radius:10px;box-shadow:0 1px 4px #aaa;">`;
+                }
+                if (m.text && m.text !== "") {
+                    content += `<span class="text">${m.text}</span>`;
+                }
+                content += `<span class="timestamp">${m.timestamp.replace('T',' ')}</span>`;
+                div.innerHTML = content;
                 chat.appendChild(div);
             });
             chat.scrollTop = chat.scrollHeight;
         }
+        // Image upload logic
+        const imgForm = document.getElementById('imgForm');
+        const imgInput = document.getElementById('imgInput');
+            imgForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const resultDiv = document.getElementById('result');
+                resultDiv.textContent = '';
+                if (!imgInput.files || imgInput.files.length === 0) {
+                    resultDiv.textContent = 'Please select an image file.';
+                    return;
+                }
+                const file = imgInput.files[0];
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('sender', sender);
+                formData.append('key', apiKey);
+                try {
+                    const res = await fetch(API_BASE + '/send-image', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    let data = {};
+                    try { data = await res.json(); } catch (e) {}
+                    if (!res.ok) {
+                        if (res.status === 404) {
+                            resultDiv.textContent = 'Image upload endpoint not found.';
+                        } else if (data && data.detail) {
+                            resultDiv.textContent = data.detail;
+                        } else {
+                            resultDiv.textContent = 'Error sending image.';
+                        }
+                    } else {
+                        resultDiv.textContent = data.status || 'Image sent!';
+                        imgInput.value = '';
+                        fetchMessages();
+                    }
+                } catch (err) {
+                    resultDiv.textContent = 'Error sending image.';
+                }
+            });
+
+        // Paste and drag-and-drop support
+        function handleImageFile(file) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.textContent = '';
+                if (!file) {
+                    resultDiv.textContent = 'No file provided.';
+                    return;
+                }
+                if (!file.type.startsWith('image/')) {
+                    resultDiv.textContent = 'Only image files are allowed.';
+                    imgInput.value = '';
+                    // Also visually shake the input for feedback
+                    imgInput.classList.add('error');
+                    setTimeout(() => imgInput.classList.remove('error'), 500);
+                    return;
+                }
+            imgInput.value = '';
+            const dt = new DataTransfer();
+            dt.items.add(file);
+            imgInput.files = dt.files;
+        }
+    // Add error style for input
+    const style = document.createElement('style');
+    style.innerHTML = `.error { border: 2px solid red !important; }`;
+    document.head.appendChild(style);
+        document.addEventListener('paste', function(e) {
+            if (e.clipboardData && e.clipboardData.files.length > 0) {
+                handleImageFile(e.clipboardData.files[0]);
+            }
+        });
+        document.addEventListener('dragover', function(e) {
+            e.preventDefault();
+        });
+        document.addEventListener('drop', function(e) {
+            e.preventDefault();
+            if (e.dataTransfer && e.dataTransfer.files.length > 0) {
+                handleImageFile(e.dataTransfer.files[0]);
+            }
+        });
 
         document.getElementById('msgForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             const msg = document.getElementById('msg').value;
             const resultDiv = document.getElementById('result');
             try {
-                const res = await fetch('https://mbl2pc.onrender.com/send?msg=' + encodeURIComponent(msg) + '&sender=' + encodeURIComponent(sender) + '&key=' + encodeURIComponent(apiKey), {
+                const res = await fetch(API_BASE + '/send?msg=' + encodeURIComponent(msg) + '&sender=' + encodeURIComponent(sender) + '&key=' + encodeURIComponent(apiKey), {
                     method: 'POST'
                 });
                 const data = await res.json();
