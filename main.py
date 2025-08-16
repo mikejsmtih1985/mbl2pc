@@ -1,3 +1,12 @@
+# Shared secret for simple authentication
+import os
+API_KEY = os.environ.get("MBL2PC_API_KEY", "changeme123")
+
+from fastapi import HTTPException
+
+def check_key(key: str):
+    if key != API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid API key.")
 
 
 from fastapi import FastAPI, Request
@@ -42,7 +51,8 @@ def read_root():
     return {"message": "Hello from mbl2pc!"}
 
 @app.post("/send")
-async def send_message(request: Request, msg: str, sender: str = "unknown"):
+async def send_message(request: Request, msg: str, sender: str = "unknown", key: str = ""):
+    check_key(key)
     # Use sender from query param, or try to guess from user-agent
     if sender == "unknown":
         ua = request.headers.get("user-agent", "")
@@ -63,5 +73,6 @@ async def send_message(request: Request, msg: str, sender: str = "unknown"):
     return {"status": "Message received"}
 
 @app.get("/messages")
-def get_messages():
+def get_messages(key: str = ""):
+    check_key(key)
     return {"messages": [m.dict() for m in messages]}

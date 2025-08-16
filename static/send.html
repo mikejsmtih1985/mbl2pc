@@ -19,19 +19,26 @@
     <div id="result" style="margin-top:1em;"></div>
     <script>
         // Identify this device (simple, not secure)
+
         let sender = localStorage.getItem('mbl2pc_sender') || '';
         if (!sender) {
             sender = prompt('Enter your name or device (e.g., Mike, iPhone, PC):') || 'unknown';
             localStorage.setItem('mbl2pc_sender', sender);
         }
 
+        let apiKey = localStorage.getItem('mbl2pc_key') || '';
+        if (!apiKey) {
+            apiKey = prompt('Enter your chat secret key:') || '';
+            localStorage.setItem('mbl2pc_key', apiKey);
+        }
+
         async function fetchMessages() {
             try {
-                const res = await fetch('https://mbl2pc.onrender.com/messages');
+                const res = await fetch('https://mbl2pc.onrender.com/messages?key=' + encodeURIComponent(apiKey));
                 const data = await res.json();
                 renderMessages(data.messages);
             } catch (err) {
-                document.getElementById('chat').innerHTML = '<em>Could not load messages.</em>';
+                document.getElementById('chat').innerHTML = '<em>Could not load messages (wrong key?).</em>';
             }
         }
 
@@ -52,7 +59,7 @@
             const msg = document.getElementById('msg').value;
             const resultDiv = document.getElementById('result');
             try {
-                const res = await fetch('https://mbl2pc.onrender.com/send?msg=' + encodeURIComponent(msg) + '&sender=' + encodeURIComponent(sender), {
+                const res = await fetch('https://mbl2pc.onrender.com/send?msg=' + encodeURIComponent(msg) + '&sender=' + encodeURIComponent(sender) + '&key=' + encodeURIComponent(apiKey), {
                     method: 'POST'
                 });
                 const data = await res.json();
