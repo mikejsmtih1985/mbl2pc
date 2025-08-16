@@ -1,9 +1,14 @@
 
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from datetime import datetime
 
+
+import os
 app = FastAPI()
 
 # Allow all CORS for testing (so your phone can access it)
@@ -14,6 +19,16 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Serve static files (send.html) from /static
+if not os.path.exists("static"):
+    os.mkdir("static")
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Route for /send.html to serve the chat UI
+@app.get("/send.html")
+def serve_send_html():
+    return FileResponse("static/send.html")
 
 class Message(BaseModel):
     sender: str
