@@ -27,7 +27,7 @@
 
         async function fetchMessages() {
             try {
-                const res = await fetch('http://192.168.6.136:8000/messages');
+                const res = await fetch('https://mbl2pc.onrender.com/');
                 const data = await res.json();
                 renderMessages(data.messages);
             } catch (err) {
