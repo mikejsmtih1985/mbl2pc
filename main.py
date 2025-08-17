@@ -103,9 +103,10 @@ async def auth(request: Request):
     try:
         token = await oauth.google.authorize_access_token(request)
         print(f"[DEBUG] OAuth token response: {token}", file=sys.stderr)
-    user = token.get("userinfo")
+        user = token.get("userinfo")
     except Exception as e:
         print(f"[ERROR] OAuth authentication failed: {e}", file=sys.stderr)
+        import traceback
         traceback.print_exc(file=sys.stderr)
         return RedirectResponse('/login')
     if not user:
