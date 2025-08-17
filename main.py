@@ -1,4 +1,3 @@
-def check_key(key: str):
 
 # --- Google OAuth setup ---
 import os
