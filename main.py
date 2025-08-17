@@ -1,12 +1,34 @@
-# Shared secret for simple authentication
-import os
-API_KEY = os.environ.get("MBL2PC_API_KEY", "changeme123")
-
-from fastapi import HTTPException
-
 def check_key(key: str):
-    if key != API_KEY:
-        raise HTTPException(status_code=401, detail="Invalid API key.")
+
+# --- Google OAuth setup ---
+import os
+from fastapi import HTTPException, Depends, Response
+from starlette.requests import Request as StarletteRequest
+from starlette.responses import RedirectResponse
+from authlib.integrations.starlette_client import OAuth, OAuthError
+
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET")
+OAUTH_REDIRECT_URI = os.environ.get("OAUTH_REDIRECT_URI", "http://localhost:8000/auth")
+
+oauth = OAuth()
+oauth.register(
+    name='google',
+    client_id=GOOGLE_CLIENT_ID,
+    client_secret=GOOGLE_CLIENT_SECRET,
+    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+    client_kwargs={
+        'scope': 'openid email profile',
+    }
+)
+
+from fastapi import Cookie
+
+def get_current_user(request: Request):
+    user = request.session.get('user')
+    if not user:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    return user
 
 
 from fastapi import FastAPI, Request, UploadFile, File, Form
@@ -23,7 +45,10 @@ import boto3
 import uuid
 from botocore.exceptions import ClientError
 
+
+from fastapi.middleware.sessions import SessionMiddleware
 app = FastAPI()
+app.add_middleware(SessionMiddleware, secret_key=os.environ.get("SESSION_SECRET_KEY", "change-this-key"))
 
 # Allow all CORS for testing (so your phone can access it)
 app.add_middleware(
@@ -41,14 +66,47 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Route for /send.html to serve the chat UI
 @app.get("/send.html")
-def serve_send_html():
+def serve_send_html(request: Request):
+    # If not logged in, redirect to login
+    if not request.session.get('user'):
+        return RedirectResponse('/login')
     return FileResponse("static/send.html")
+
+# Google OAuth login
+@app.get('/login')
+async def login(request: Request):
+    redirect_uri = OAUTH_REDIRECT_URI
+    return await oauth.google.authorize_redirect(request, redirect_uri)
+
+# Google OAuth callback
+@app.route('/auth')
+async def auth(request: Request):
+    try:
+        token = await oauth.google.authorize_access_token(request)
+    except OAuthError:
+        return RedirectResponse('/login')
+    user = await oauth.google.parse_id_token(request, token)
+    request.session['user'] = {
+        'sub': user['sub'],
+        'email': user.get('email'),
+        'name': user.get('name'),
+        'picture': user.get('picture')
+    }
+    return RedirectResponse('/send.html')
+
+# Logout
+@app.get('/logout')
+def logout(request: Request):
+    request.session.clear()
+    return RedirectResponse('/login')
+
 
 class Message(BaseModel):
     sender: str
     text: str = ""
     image_url: str = ""
     timestamp: str
+    user_id: str
 
 
 # DynamoDB setup
@@ -68,10 +126,11 @@ def read_root():
 
 
 # Text message endpoint (DynamoDB)
+
 @app.post("/send")
-async def send_message(request: Request, msg: str = Form(""), sender: str = Form("unknown"), key: str = Form("") ):
-    check_key(key)
-    # Use sender from query param, or try to guess from user-agent
+async def send_message(request: Request, msg: str = Form(""), sender: str = Form("unknown")):
+    user = get_current_user(request)
+    # Use sender from param or guess
     if sender == "unknown":
         ua = request.headers.get("user-agent", "")
         if "iPhone" in ua:
@@ -86,9 +145,9 @@ async def send_message(request: Request, msg: str = Form(""), sender: str = Form
         sender=sender,
         text=msg,
         image_url="",
-        timestamp=datetime.now().isoformat(timespec="seconds")
+        timestamp=datetime.now().isoformat(timespec="seconds"),
+        user_id=user['sub']
     )
-    # Store in DynamoDB
     item = message.dict()
     item["id"] = str(uuid.uuid4())
     try:
@@ -101,15 +160,15 @@ async def send_message(request: Request, msg: str = Form(""), sender: str = Form
 
 
 # Image upload endpoint with optional text (DynamoDB)
+
 @app.post("/send-image")
 async def send_image(
     request: Request,
     file: UploadFile = File(...),
     sender: str = Form("unknown"),
-    key: str = Form(""),
     text: str = Form("")
 ):
-    check_key(key)
+    user = get_current_user(request)
     # Validate file
     if not file or not hasattr(file, "filename"):
         raise HTTPException(status_code=400, detail="No file uploaded.")
@@ -148,9 +207,9 @@ async def send_image(
         sender=sender,
         text=text,
         image_url=image_url,
-        timestamp=datetime.now().isoformat(timespec="seconds")
+        timestamp=datetime.now().isoformat(timespec="seconds"),
+        user_id=user['sub']
     )
-    # Store in DynamoDB
     item = message.dict()
     item["id"] = str(uuid.uuid4())
     try:
@@ -160,13 +219,16 @@ async def send_image(
     return {"status": "Image received", "image_url": image_url}
 
 
-# Retrieve messages from DynamoDB (sorted by timestamp descending, limit 100)
+
+# Retrieve messages for the current user from DynamoDB (sorted by timestamp descending, limit 100)
 @app.get("/messages")
-def get_messages(key: str = ""):
-    check_key(key)
+def get_messages(request: Request):
+    user = get_current_user(request)
     try:
         resp = table.scan()
         items = resp.get("Items", [])
+        # Filter by user_id
+        items = [item for item in items if item.get("user_id") == user['sub']]
         # Sort by timestamp descending, then return most recent 100
         items.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
         messages = [
