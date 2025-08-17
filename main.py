@@ -103,7 +103,7 @@ async def auth(request: Request):
     try:
         token = await oauth.google.authorize_access_token(request)
         print(f"[DEBUG] OAuth token response: {token}", file=sys.stderr)
-    user = await oauth.google.parse_id_token(request, token["id_token"])
+        user = await oauth.google.parse_id_token(request, token["id_token"])
     except Exception as e:
         print(f"[ERROR] OAuth authentication failed: {e}", file=sys.stderr)
         traceback.print_exc(file=sys.stderr)
