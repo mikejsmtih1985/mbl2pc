@@ -7,20 +7,32 @@ from starlette.requests import Request as StarletteRequest
 from starlette.responses import RedirectResponse
 from authlib.integrations.starlette_client import OAuth, OAuthError
 
+import sys
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET")
 OAUTH_REDIRECT_URI = os.environ.get("OAUTH_REDIRECT_URI", "http://localhost:8000/auth")
 
-oauth = OAuth()
-oauth.register(
-    name='google',
-    client_id=GOOGLE_CLIENT_ID,
-    client_secret=GOOGLE_CLIENT_SECRET,
-    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
-    client_kwargs={
-        'scope': 'openid email profile',
-    }
-)
+missing_oauth_vars = []
+if not GOOGLE_CLIENT_ID:
+    missing_oauth_vars.append("GOOGLE_CLIENT_ID")
+if not GOOGLE_CLIENT_SECRET:
+    missing_oauth_vars.append("GOOGLE_CLIENT_SECRET")
+if not OAUTH_REDIRECT_URI:
+    missing_oauth_vars.append("OAUTH_REDIRECT_URI")
+if missing_oauth_vars:
+    print(f"[ERROR] Missing OAuth environment variables: {', '.join(missing_oauth_vars)}", file=sys.stderr)
+    oauth = None
+else:
+    oauth = OAuth()
+    oauth.register(
+        name='google',
+        client_id=GOOGLE_CLIENT_ID,
+        client_secret=GOOGLE_CLIENT_SECRET,
+        server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+        client_kwargs={
+            'scope': 'openid email profile',
+        }
+    )
 
 
 
@@ -75,17 +87,26 @@ def serve_send_html(request: Request):
 # Google OAuth login
 @app.get('/login')
 async def login(request: Request):
+    if not oauth or not hasattr(oauth, 'google'):
+        print("[ERROR] OAuth is not configured properly.", file=sys.stderr)
+        raise HTTPException(status_code=500, detail="OAuth is not configured properly.")
     redirect_uri = OAUTH_REDIRECT_URI
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
 # Google OAuth callback
 @app.route('/auth')
 async def auth(request: Request):
+    if not oauth or not hasattr(oauth, 'google'):
+        print("[ERROR] OAuth is not configured properly.", file=sys.stderr)
+        raise HTTPException(status_code=500, detail="OAuth is not configured properly.")
     try:
         token = await oauth.google.authorize_access_token(request)
-    except OAuthError:
+        user = await oauth.google.parse_id_token(request, token)
+    except Exception as e:
+        print(f"[ERROR] OAuth authentication failed: {e}", file=sys.stderr)
         return RedirectResponse('/login')
-    user = await oauth.google.parse_id_token(request, token)
+    if not user:
+        raise HTTPException(status_code=401, detail="Failed to authenticate user.")
     request.session['user'] = {
         'sub': user['sub'],
         'email': user.get('email'),
@@ -109,11 +130,15 @@ class Message(BaseModel):
     user_id: str
 
 
-# DynamoDB setup
+# DynamoDB setup with error handling
 DDB_TABLE = os.environ.get("MBL2PC_DDB_TABLE", "mbl2pc-messages")
 DDB_REGION = os.environ.get("AWS_REGION", "us-east-1")
-dynamodb = boto3.resource("dynamodb", region_name=DDB_REGION)
-table = dynamodb.Table(DDB_TABLE)
+try:
+    dynamodb = boto3.resource("dynamodb", region_name=DDB_REGION)
+    table = dynamodb.Table(DDB_TABLE)
+except Exception as e:
+    print(f"[ERROR] Failed to initialize DynamoDB: {e}", file=sys.stderr)
+    table = None
 
 # Ensure static/images directory exists
 if not os.path.exists("static/images"):
@@ -150,9 +175,13 @@ async def send_message(request: Request, msg: str = Form(""), sender: str = Form
     )
     item = message.dict()
     item["id"] = str(uuid.uuid4())
+    if not table:
+        print("[ERROR] DynamoDB table is not initialized.", file=sys.stderr)
+        raise HTTPException(status_code=500, detail="DynamoDB table is not initialized.")
     try:
         table.put_item(Item=item)
     except ClientError as e:
+        print(f"[ERROR] DynamoDB error: {e}", file=sys.stderr)
         raise HTTPException(status_code=500, detail=f"DynamoDB error: {e}")
     return {"status": "Message received"}
 
@@ -212,9 +241,13 @@ async def send_image(
     )
     item = message.dict()
     item["id"] = str(uuid.uuid4())
+    if not table:
+        print("[ERROR] DynamoDB table is not initialized.", file=sys.stderr)
+        raise HTTPException(status_code=500, detail="DynamoDB table is not initialized.")
     try:
         table.put_item(Item=item)
     except ClientError as e:
+        print(f"[ERROR] DynamoDB error: {e}", file=sys.stderr)
         raise HTTPException(status_code=500, detail=f"DynamoDB error: {e}")
     return {"status": "Image received", "image_url": image_url}
 
@@ -224,6 +257,9 @@ async def send_image(
 @app.get("/messages")
 def get_messages(request: Request):
     user = get_current_user(request)
+    if not table:
+        print("[ERROR] DynamoDB table is not initialized.", file=sys.stderr)
+        raise HTTPException(status_code=500, detail="DynamoDB table is not initialized.")
     try:
         resp = table.scan()
         items = resp.get("Items", [])
@@ -236,5 +272,6 @@ def get_messages(request: Request):
             for item in items[:100]
         ]
     except ClientError as e:
+        print(f"[ERROR] DynamoDB error: {e}", file=sys.stderr)
         raise HTTPException(status_code=500, detail=f"DynamoDB error: {e}")
     return {"messages": messages[::-1]}  # Return in ascending order
