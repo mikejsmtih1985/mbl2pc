@@ -101,6 +101,7 @@ async def auth(request: Request):
         raise HTTPException(status_code=500, detail="OAuth is not configured properly.")
     try:
         token = await oauth.google.authorize_access_token(request)
+        print(f"[DEBUG] OAuth token response: {token}", file=sys.stderr)
         user = await oauth.google.parse_id_token(request, token)
     except Exception as e:
         print(f"[ERROR] OAuth authentication failed: {e}", file=sys.stderr)
