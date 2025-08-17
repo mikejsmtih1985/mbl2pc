@@ -4,3 +4,4 @@ pydantic
 starlette
 python-multipart
 authlib
+httpx
