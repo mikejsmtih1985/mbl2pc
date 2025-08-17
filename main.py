@@ -46,7 +46,7 @@ import uuid
 from botocore.exceptions import ClientError
 
 
-from fastapi.middleware.sessions import SessionMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key=os.environ.get("SESSION_SECRET_KEY", "change-this-key"))
 
