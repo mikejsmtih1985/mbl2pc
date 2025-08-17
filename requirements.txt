@@ -3,3 +3,4 @@ uvicorn
 pydantic
 starlette
 python-multipart
+authlib
