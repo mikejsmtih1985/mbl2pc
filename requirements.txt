@@ -5,3 +5,7 @@ starlette
 python-multipart
 authlib
 httpx
+boto3
+botocore
+itsdangerous
+pytest
