@@ -1,8 +1,8 @@
-def check_key(key: str):
+
 
 # --- Google OAuth setup ---
 import os
-from fastapi import HTTPException, Depends, Response
+from fastapi import FastAPI, Request, UploadFile, File, Form, HTTPException, Depends, Response
 from starlette.requests import Request as StarletteRequest
 from starlette.responses import RedirectResponse
 from authlib.integrations.starlette_client import OAuth, OAuthError
@@ -22,7 +22,7 @@ oauth.register(
     }
 )
 
-from fastapi import Cookie
+
 
 def get_current_user(request: Request):
     user = request.session.get('user')
@@ -31,7 +31,7 @@ def get_current_user(request: Request):
     return user
 
 
-from fastapi import FastAPI, Request, UploadFile, File, Form
+
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -46,7 +46,7 @@ import uuid
 from botocore.exceptions import ClientError
 
 
-from fastapi.middleware.sessions import SessionMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key=os.environ.get("SESSION_SECRET_KEY", "change-this-key"))
 
