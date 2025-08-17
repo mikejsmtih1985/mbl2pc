@@ -17,8 +17,9 @@
         <button type="submit">Send</button>
     </form>
     <form id="imgForm" style="margin-top:0.5em;display:flex;gap:0.5em;align-items:center;">
-        <input type="file" id="imgInput" accept="image/*" style="flex:1;">
-        <button type="submit">Send Image</button>
+    <input type="file" id="imgInput" accept="image/*" style="flex:1;">
+    <input type="text" id="imgText" placeholder="Optional caption" style="flex:2;">
+    <button type="submit">Send Image</button>
     </form>
     <div id="imgHint" style="font-size:0.9em;color:#888;margin-top:0.2em;">Paste or drag an image here, or use the file picker.</div>
     <div id="result" style="margin-top:1em;"></div>
@@ -70,43 +71,46 @@
         // Image upload logic
         const imgForm = document.getElementById('imgForm');
         const imgInput = document.getElementById('imgInput');
-            imgForm.addEventListener('submit', async function(e) {
-                e.preventDefault();
-                const resultDiv = document.getElementById('result');
-                resultDiv.textContent = '';
-                if (!imgInput.files || imgInput.files.length === 0) {
-                    resultDiv.textContent = 'Please select an image file.';
-                    return;
-                }
-                const file = imgInput.files[0];
-                const formData = new FormData();
-                formData.append('file', file);
-                formData.append('sender', sender);
-                formData.append('key', apiKey);
-                try {
-                    const res = await fetch(API_BASE + '/send-image', {
-                        method: 'POST',
-                        body: formData
-                    });
-                    let data = {};
-                    try { data = await res.json(); } catch (e) {}
-                    if (!res.ok) {
-                        if (res.status === 404) {
-                            resultDiv.textContent = 'Image upload endpoint not found.';
-                        } else if (data && data.detail) {
-                            resultDiv.textContent = data.detail;
-                        } else {
-                            resultDiv.textContent = 'Error sending image.';
-                        }
+        imgForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const resultDiv = document.getElementById('result');
+            resultDiv.textContent = '';
+            if (!imgInput.files || imgInput.files.length === 0) {
+                resultDiv.textContent = 'Please select an image file.';
+                return;
+            }
+            const file = imgInput.files[0];
+            const text = document.getElementById('imgText').value;
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('sender', sender);
+            formData.append('key', apiKey);
+            formData.append('text', text);
+            try {
+                const res = await fetch(API_BASE + '/send-image', {
+                    method: 'POST',
+                    body: formData
+                });
+                let data = {};
+                try { data = await res.json(); } catch (e) {}
+                if (!res.ok) {
+                    if (res.status === 404) {
+                        resultDiv.textContent = 'Image upload endpoint not found.';
+                    } else if (data && data.detail) {
+                        resultDiv.textContent = data.detail;
                     } else {
-                        resultDiv.textContent = data.status || 'Image sent!';
-                        imgInput.value = '';
-                        fetchMessages();
+                        resultDiv.textContent = 'Error sending image.';
                     }
-                } catch (err) {
-                    resultDiv.textContent = 'Error sending image.';
+                } else {
+                    resultDiv.textContent = data.status || 'Image sent!';
+                    imgInput.value = '';
+                    document.getElementById('imgText').value = '';
+                    fetchMessages();
                 }
-            });
+            } catch (err) {
+                resultDiv.textContent = 'Error sending image.';
+            }
+        });
 
         // Paste and drag-and-drop support
         function handleImageFile(file) {
@@ -152,9 +156,14 @@
             e.preventDefault();
             const msg = document.getElementById('msg').value;
             const resultDiv = document.getElementById('result');
+            const formData = new FormData();
+            formData.append('msg', msg);
+            formData.append('sender', sender);
+            formData.append('key', apiKey);
             try {
-                const res = await fetch(API_BASE + '/send?msg=' + encodeURIComponent(msg) + '&sender=' + encodeURIComponent(sender) + '&key=' + encodeURIComponent(apiKey), {
-                    method: 'POST'
+                const res = await fetch(API_BASE + '/send', {
+                    method: 'POST',
+                    body: formData
                 });
                 const data = await res.json();
                 resultDiv.textContent = data.status || 'Sent!';

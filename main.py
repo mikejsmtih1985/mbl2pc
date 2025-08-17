@@ -82,13 +82,15 @@ async def send_message(request: Request, msg: str = Form(""), sender: str = Form
     return {"status": "Message received"}
 
 
-# Image upload endpoint with error handling
+
+# Image upload endpoint with optional text
 @app.post("/send-image")
 async def send_image(
     request: Request,
     file: UploadFile = File(...),
     sender: str = Form("unknown"),
-    key: str = Form("")
+    key: str = Form(""),
+    text: str = Form("")
 ):
     check_key(key)
     # Validate file
@@ -127,7 +129,7 @@ async def send_image(
             sender = "unknown"
     message = Message(
         sender=sender,
-        text="",
+        text=text,
         image_url=image_url,
         timestamp=datetime.now().isoformat(timespec="seconds")
     )
