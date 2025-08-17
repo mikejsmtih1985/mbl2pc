@@ -18,7 +18,11 @@ from datetime import datetime
 import shutil
 
 
-import os
+
+import boto3
+import uuid
+from botocore.exceptions import ClientError
+
 app = FastAPI()
 
 # Allow all CORS for testing (so your phone can access it)
@@ -46,7 +50,12 @@ class Message(BaseModel):
     image_url: str = ""
     timestamp: str
 
-messages = []  # In-memory message store for now
+
+# DynamoDB setup
+DDB_TABLE = os.environ.get("MBL2PC_DDB_TABLE", "mbl2pc-messages")
+DDB_REGION = os.environ.get("AWS_REGION", "us-east-1")
+dynamodb = boto3.resource("dynamodb", region_name=DDB_REGION)
+table = dynamodb.Table(DDB_TABLE)
 
 # Ensure static/images directory exists
 if not os.path.exists("static/images"):
@@ -57,7 +66,8 @@ def read_root():
     return {"message": "Hello from mbl2pc!"}
 
 
-# Text message endpoint (unchanged)
+
+# Text message endpoint (DynamoDB)
 @app.post("/send")
 async def send_message(request: Request, msg: str = Form(""), sender: str = Form("unknown"), key: str = Form("") ):
     check_key(key)
@@ -78,12 +88,19 @@ async def send_message(request: Request, msg: str = Form(""), sender: str = Form
         image_url="",
         timestamp=datetime.now().isoformat(timespec="seconds")
     )
-    messages.append(message)
+    # Store in DynamoDB
+    item = message.dict()
+    item["id"] = str(uuid.uuid4())
+    try:
+        table.put_item(Item=item)
+    except ClientError as e:
+        raise HTTPException(status_code=500, detail=f"DynamoDB error: {e}")
     return {"status": "Message received"}
 
 
 
-# Image upload endpoint with optional text
+
+# Image upload endpoint with optional text (DynamoDB)
 @app.post("/send-image")
 async def send_image(
     request: Request,
@@ -133,10 +150,29 @@ async def send_image(
         image_url=image_url,
         timestamp=datetime.now().isoformat(timespec="seconds")
     )
-    messages.append(message)
+    # Store in DynamoDB
+    item = message.dict()
+    item["id"] = str(uuid.uuid4())
+    try:
+        table.put_item(Item=item)
+    except ClientError as e:
+        raise HTTPException(status_code=500, detail=f"DynamoDB error: {e}")
     return {"status": "Image received", "image_url": image_url}
 
+
+# Retrieve messages from DynamoDB (sorted by timestamp descending, limit 100)
 @app.get("/messages")
 def get_messages(key: str = ""):
     check_key(key)
-    return {"messages": [m.dict() for m in messages]}
+    try:
+        resp = table.scan()
+        items = resp.get("Items", [])
+        # Sort by timestamp descending, then return most recent 100
+        items.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+        messages = [
+            {k: v for k, v in item.items() if k in ["sender", "text", "image_url", "timestamp"]}
+            for item in items[:100]
+        ]
+    except ClientError as e:
+        raise HTTPException(status_code=500, detail=f"DynamoDB error: {e}")
+    return {"messages": messages[::-1]}  # Return in ascending order
