@@ -1,5 +1,8 @@
-from dotenv import load_dotenv
-load_dotenv()
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # Ignore if not available (e.g., in production)
 
 
 # --- Google OAuth setup ---
