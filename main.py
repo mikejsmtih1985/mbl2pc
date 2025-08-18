@@ -1,3 +1,5 @@
+from dotenv import load_dotenv
+load_dotenv()
 
 
 # --- Google OAuth setup ---
@@ -38,9 +40,17 @@ else:
 
 
 def get_current_user(request: Request):
-    user = request.session.get('user')
+    try:
+        user = request.session.get('user')
+    except Exception as e:
+        import traceback
+        print(f"[ERROR] Exception accessing session: {e}", file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
+        raise HTTPException(status_code=500, detail="Internal server error accessing session.")
     if not user:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+        raise HTTPException(status_code=401, detail="Not authenticated: session missing or expired.")
+    if not isinstance(user, dict) or 'sub' not in user:
+        raise HTTPException(status_code=401, detail="Not authenticated: session user invalid.")
     return user
 
 
@@ -51,6 +61,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from datetime import datetime
 import shutil
+from botocore.exceptions import NoCredentialsError
 
 
 
@@ -118,6 +129,7 @@ async def auth(request: Request):
         'name': user.get('name'),
         'picture': user.get('picture')
     }
+    print("[DEBUG] Session user set:", request.session['user'])
     return RedirectResponse('/send.html')
 
 # Logout
@@ -135,7 +147,6 @@ class Message(BaseModel):
     user_id: str
 
 
-# DynamoDB setup with error handling
 DDB_TABLE = os.environ.get("MBL2PC_DDB_TABLE", "mbl2pc-messages")
 DDB_REGION = os.environ.get("AWS_REGION", "us-east-1")
 try:
@@ -144,6 +155,10 @@ try:
 except Exception as e:
     print(f"[ERROR] Failed to initialize DynamoDB: {e}", file=sys.stderr)
     table = None
+
+# S3 setup
+S3_BUCKET = os.environ.get("S3_BUCKET", "mbl2pc-images")
+s3 = boto3.client("s3", region_name=DDB_REGION)
 
 # Ensure static/images directory exists
 if not os.path.exists("static/images"):
@@ -159,7 +174,15 @@ def read_root():
 
 @app.post("/send")
 async def send_message(request: Request, msg: str = Form(""), sender: str = Form("unknown")):
-    user = get_current_user(request)
+    try:
+        user = get_current_user(request)
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        import traceback
+        print(f"[ERROR] Unexpected error in get_current_user: {e}", file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
+        raise HTTPException(status_code=500, detail="Internal error authenticating user.")
     # Use sender from param or guess
     if sender == "unknown":
         ua = request.headers.get("user-agent", "")
@@ -188,6 +211,11 @@ async def send_message(request: Request, msg: str = Form(""), sender: str = Form
     except ClientError as e:
         print(f"[ERROR] DynamoDB error: {e}", file=sys.stderr)
         raise HTTPException(status_code=500, detail=f"DynamoDB error: {e}")
+    except Exception as e:
+        import traceback
+        print(f"[ERROR] Unexpected error writing to DynamoDB: {e}", file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
+        raise HTTPException(status_code=500, detail=f"Unexpected error writing to DynamoDB: {e}")
     return {"status": "Message received"}
 
 
@@ -213,19 +241,20 @@ async def send_image(
     if ext not in [".jpg", ".jpeg", ".png", ".gif", ".webp"]:
         raise HTTPException(status_code=400, detail="Unsupported file type.")
     fname = f"img_{datetime.now().strftime('%Y%m%d%H%M%S%f')}{ext}"
-    fpath = os.path.join("static/images", fname)
+    # Upload to S3 instead of local storage
     try:
-        with open(fpath, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-        image_url = f"/static/images/{fname}"
+        file.file.seek(0)
+        s3.upload_fileobj(
+            file.file,
+            S3_BUCKET,
+            fname,
+            ExtraArgs={"ContentType": file.content_type, "ACL": "public-read"}
+        )
+        image_url = f"https://{S3_BUCKET}.s3.amazonaws.com/{fname}"
+    except NoCredentialsError:
+        raise HTTPException(status_code=500, detail="AWS credentials not found for S3 upload.")
     except Exception as e:
-        # Clean up partial file if it exists
-        if os.path.exists(fpath):
-            try:
-                os.remove(fpath)
-            except Exception:
-                pass
-        raise HTTPException(status_code=500, detail=f"Failed to save image: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to upload image to S3: {e}")
     # Use sender from param or guess
     if sender == "unknown":
         ua = request.headers.get("user-agent", "")
@@ -255,6 +284,8 @@ async def send_image(
         print(f"[ERROR] DynamoDB error: {e}", file=sys.stderr)
         raise HTTPException(status_code=500, detail=f"DynamoDB error: {e}")
     return {"status": "Image received", "image_url": image_url}
+
+# Note: Local static/images/ storage is now deprecated for new uploads. Images are stored in S3.
 
 
 
