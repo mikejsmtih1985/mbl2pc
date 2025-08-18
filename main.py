@@ -251,7 +251,7 @@ async def send_image(
             file.file,
             S3_BUCKET,
             fname,
-            ExtraArgs={"ContentType": file.content_type, "ACL": "public-read"}
+            ExtraArgs={"ContentType": file.content_type}
         )
         image_url = f"https://{S3_BUCKET}.s3.amazonaws.com/{fname}"
     except NoCredentialsError:
