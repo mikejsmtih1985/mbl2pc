@@ -193,7 +193,32 @@
                 div.innerHTML = content;
                 chat.appendChild(div);
             });
-            chat.scrollTop = chat.scrollHeight;
+                // Save scroll position and check if user is near the bottom
+                const prevScrollTop = chat.scrollTop;
+                const prevScrollHeight = chat.scrollHeight;
+                const isNearBottom = prevScrollHeight - prevScrollTop - chat.clientHeight < 30;
+                chat.innerHTML = '';
+                messages.forEach(m => {
+                    const div = document.createElement('div');
+                    div.className = 'bubble sent'; // All messages are 'sent' for this user
+                    let content = `<span class="sender">${m.sender}</span>`;
+                    if (m.image_url && m.image_url !== "") {
+                        content += `<img src="${m.image_url}" style="max-width:200px;max-height:200px;display:block;margin:0.5em 0;border-radius:10px;box-shadow:0 1px 4px #aaa;">`;
+                    }
+                    if (m.text && m.text !== "") {
+                        content += `<span class="text">${m.text}</span>`;
+                    }
+                    content += `<span class="timestamp">${m.timestamp.replace('T',' ')}</span>`;
+                    div.innerHTML = content;
+                    chat.appendChild(div);
+                });
+                // Only scroll if user was already near the bottom, otherwise preserve scroll position
+                if (isNearBottom) {
+                    chat.scrollTop = chat.scrollHeight;
+                } else {
+                    // Try to preserve scroll position relative to previous content
+                    chat.scrollTop = prevScrollTop + (chat.scrollHeight - prevScrollHeight);
+                }
         }
         // Image upload logic
         const imgForm = document.getElementById('imgForm');
@@ -310,9 +335,8 @@
         container.insertBefore(loginBtn, container.firstChild);
 
         // Check authentication and start chat
-        checkAuth();
-        setInterval(fetchMessages, 2000);
-        fetchMessages();
+    checkAuth();
+    fetchMessages();
     </script>
     <style>
         #chat { background: #f5f5f5; padding: 1em; border-radius: 10px; min-height: 200px; max-height: 400px; overflow-y: auto; }
