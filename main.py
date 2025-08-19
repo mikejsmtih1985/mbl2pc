@@ -1,3 +1,4 @@
+
 try:
     from dotenv import load_dotenv
     load_dotenv()
@@ -76,6 +77,21 @@ from botocore.exceptions import ClientError
 from starlette.middleware.sessions import SessionMiddleware
 app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key=os.environ.get("SESSION_SECRET_KEY", "change-this-key"))
+
+# Expose git commit hash as version
+import subprocess
+def get_git_version():
+    try:
+        return subprocess.check_output(["git", "rev-parse", "--short", "HEAD"]).decode("utf-8").strip()
+    except Exception:
+        return "unknown"
+
+APP_VERSION = get_git_version()
+
+# Version endpoint
+@app.get("/version")
+def version():
+    return {"version": APP_VERSION}
 
 # Allow all CORS for testing (so your phone can access it)
 app.add_middleware(
