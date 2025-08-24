@@ -1,17 +1,32 @@
 """
 API endpoints for sending and retrieving messages and images.
+Enhanced with modern dependency injection and repository patterns.
 """
 
 import os
-import uuid
 from datetime import UTC, datetime
+from typing import Annotated
 
-from botocore.exceptions import ClientError, NoCredentialsError
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from botocore.exceptions import NoCredentialsError
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+)
+from pydantic import ValidationError
 
-from mbl2pc.core.config import settings
+from mbl2pc.core.config import Settings, get_settings
 from mbl2pc.core.dependencies import get_current_user
-from mbl2pc.core.storage import get_db_table, get_s3_client
+from mbl2pc.core.storage import (
+    MessageRepositoryProtocol,
+    get_message_repository,
+    get_s3_client,
+)
 from mbl2pc.schemas import Message, User
 
 router = APIRouter()
@@ -32,29 +47,29 @@ def _guess_sender_from_ua(request: Request) -> str:
 @router.post("/send")
 async def send_message(
     request: Request,
-    msg: str = Form(""),
-    sender: str = Form("unknown"),
+    msg: Annotated[str, Form(description="Message text content")] = "",
+    sender: Annotated[str, Form(description="Sender identifier")] = "unknown",
     user: User = Depends(get_current_user),
-    table=Depends(get_db_table),
-):
-    """Receives and stores a text message in DynamoDB."""
+    message_repo: MessageRepositoryProtocol = Depends(get_message_repository),
+) -> dict[str, str]:
+    """Receives and stores a text message using the repository pattern."""
     if sender == "unknown":
         sender = _guess_sender_from_ua(request)
 
-    message = Message(
-        sender=sender,
-        text=msg,
-        timestamp=datetime.now(UTC).isoformat(timespec="seconds"),
-        user_id=user.sub,
-    )
-
-    item = message.model_dump()
-    item["id"] = str(uuid.uuid4())
+    try:
+        message = Message(  # type: ignore[call-arg]
+            sender=sender,
+            text=msg,
+            timestamp=datetime.now(UTC),
+            user_id=user.sub,
+        )
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid message data: {e}") from e
 
     try:
-        table.put_item(Item=item)
-    except ClientError as e:
-        raise HTTPException(status_code=500, detail=f"DynamoDB error: {e}") from e
+        await message_repo.add_message(message)
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
     return {"status": "Message received"}
 
@@ -62,14 +77,15 @@ async def send_message(
 @router.post("/send-image")
 async def send_image(
     request: Request,
-    file: UploadFile = File(...),
-    sender: str = Form("unknown"),
-    text: str = Form(""),
+    file: Annotated[UploadFile, File(description="Image file to upload")],
+    sender: Annotated[str, Form(description="Sender identifier")] = "unknown",
+    text: Annotated[str, Form(description="Optional text message")] = "",
     user: User = Depends(get_current_user),
-    table=Depends(get_db_table),
-    s3=Depends(get_s3_client),
-):
-    """Receives an image, uploads it to S3, and stores message metadata in DynamoDB."""
+    message_repo: MessageRepositoryProtocol = Depends(get_message_repository),
+    s3_client=Depends(get_s3_client),
+    settings: Settings = Depends(get_settings),
+) -> dict[str, str]:
+    """Receives an image, uploads it to S3, and stores message metadata."""
     # Validate file
     if not file.filename:
         raise HTTPException(status_code=400, detail="No file uploaded.")
@@ -83,7 +99,7 @@ async def send_image(
     # Upload to S3
     try:
         file.file.seek(0)
-        s3.upload_fileobj(
+        s3_client.upload_fileobj(
             file.file,
             settings.S3_BUCKET,
             fname,
@@ -102,46 +118,48 @@ async def send_image(
     if sender == "unknown":
         sender = _guess_sender_from_ua(request)
 
-    message = Message(
-        sender=sender,
-        text=text,
-        image_url=image_url,
-        timestamp=datetime.now(UTC).isoformat(timespec="seconds"),
-        user_id=user.sub,
-    )
-
-    item = message.model_dump()
-    item["id"] = str(uuid.uuid4())
+    try:
+        message = Message(  # type: ignore[call-arg]
+            sender=sender,
+            text=text,
+            image_url=image_url,
+            timestamp=datetime.now(UTC),
+            user_id=user.sub,
+        )
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid message data: {e}") from e
 
     try:
-        table.put_item(Item=item)
-    except ClientError as e:
-        raise HTTPException(status_code=500, detail=f"DynamoDB error: {e}") from e
+        await message_repo.add_message(message)
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
     return {"status": "Image received", "image_url": image_url}
 
 
 @router.get("/messages")
-def get_messages(user: User = Depends(get_current_user), table=Depends(get_db_table)):
-    """Retrieves the last 100 messages for the current user from DynamoDB."""
+async def get_messages(
+    user: User = Depends(get_current_user),
+    message_repo: MessageRepositoryProtocol = Depends(get_message_repository),
+    limit: Annotated[
+        int, Query(description="Maximum number of messages", ge=1, le=1000)
+    ] = 100,
+) -> dict[str, list[dict[str, str]]]:
+    """Retrieves messages for the current user using the repository pattern."""
     try:
-        resp = table.scan()
-        items = resp.get("Items", [])
+        messages = await message_repo.get_messages(user.sub, limit=limit)
 
-        # Filter by user_id and sort by timestamp
-        user_items = [item for item in items if item.get("user_id") == user.sub]
-        user_items.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
-
-        # Format and limit to 100
-        messages = [
+        # Convert to dict format for API response
+        message_dicts = [
             {
-                k: v
-                for k, v in item.items()
-                if k in ["sender", "text", "image_url", "timestamp"]
+                "sender": msg.sender,
+                "text": msg.text,
+                "image_url": msg.image_url,
+                "timestamp": msg.timestamp.isoformat(),
             }
-            for item in user_items[:100]
+            for msg in messages
         ]
-    except ClientError as e:
-        raise HTTPException(status_code=500, detail=f"DynamoDB error: {e}") from e
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
-    return {"messages": messages[::-1]}  # Return in chronological order
+    return {"messages": message_dicts}

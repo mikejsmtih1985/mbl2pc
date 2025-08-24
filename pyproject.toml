@@ -72,6 +72,8 @@ select = [
 
 [tool.ruff.lint.per-file-ignores]
 "src/mbl2pc/api/*.py" = ["B008"] # Allow FastAPI Depends() in function defaults
+"src/mbl2pc/core/*.py" = ["B008"] # Allow FastAPI Depends() in function defaults
+"src/mbl2pc/main.py" = ["B008"] # Allow FastAPI Depends() in function defaults
 "tests/**/*.py" = ["S101"]       # Allow assert in tests
 
 [tool.ruff.format]

@@ -4,53 +4,108 @@ Core application settings and environment variable management.
 
 import subprocess
 from functools import lru_cache
+from typing import Annotated
 
 from authlib.integrations.starlette_client import OAuth
+from fastapi import Depends
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    """Application settings with enhanced validation and modern Pydantic v2 features."""
+
     model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", extra="ignore"
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        case_sensitive=True,
     )
 
-    GOOGLE_CLIENT_ID: str = ""
-    GOOGLE_CLIENT_SECRET: str = ""
-    SESSION_SECRET_KEY: str = "change-this-key"
-    AWS_REGION: str = "us-east-1"
-    AWS_ACCESS_KEY_ID: str | None = None
-    AWS_SECRET_ACCESS_KEY: str | None = None
-    AWS_SESSION_TOKEN: str | None = None
-    MBL2PC_DDB_TABLE: str = "mbl2pc-messages"
-    S3_BUCKET: str = "mbl2pc-images"
-    DYNAMODB_ENDPOINT_URL: str | None = None
-    S3_ENDPOINT_URL: str | None = None
-    OAUTH_REDIRECT_URI: str = "http://localhost:8000/auth"
+    # OAuth Configuration
+    GOOGLE_CLIENT_ID: Annotated[
+        str, Field(default="test-client-id", description="Google OAuth client ID")
+    ]
+    GOOGLE_CLIENT_SECRET: Annotated[
+        str,
+        Field(default="test-client-secret", description="Google OAuth client secret"),
+    ]
+    SESSION_SECRET_KEY: Annotated[
+        str,
+        Field(
+            default="change-this-key-with-32-characters",
+            min_length=32,
+            description="Session encryption key",
+        ),
+    ]
+
+    # AWS Configuration
+    AWS_REGION: Annotated[str, Field(default="us-east-1", description="AWS region")]
+    AWS_ACCESS_KEY_ID: Annotated[
+        str | None, Field(default=None, description="AWS access key ID")
+    ]
+    AWS_SECRET_ACCESS_KEY: Annotated[
+        str | None, Field(default=None, description="AWS secret access key")
+    ]
+    AWS_SESSION_TOKEN: Annotated[
+        str | None, Field(default=None, description="AWS session token")
+    ]
+
+    # DynamoDB Configuration
+    MBL2PC_DDB_TABLE: Annotated[
+        str, Field(default="mbl2pc-messages", description="DynamoDB table name")
+    ]
+    DYNAMODB_ENDPOINT_URL: Annotated[
+        str | None, Field(default=None, description="Custom DynamoDB endpoint")
+    ]
+
+    # S3 Configuration
+    S3_BUCKET: Annotated[
+        str, Field(default="mbl2pc-images", description="S3 bucket name")
+    ]
+    S3_ENDPOINT_URL: Annotated[
+        str | None, Field(default=None, description="Custom S3 endpoint")
+    ]
+
+    # OAuth Configuration
+    OAUTH_REDIRECT_URI: Annotated[
+        str,
+        Field(default="http://localhost:8000/auth", description="OAuth redirect URI"),
+    ]
+
+    @property
+    def app_version(self) -> str:
+        """Get the application version from git."""
+        return get_git_version()
 
 
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()
+    """Cached dependency for getting application settings."""
+    return Settings()  # type: ignore[call-arg]
 
 
-settings = get_settings()
+def get_oauth_client(settings: Settings = Depends(get_settings)) -> OAuth:
+    """Dependency for getting configured OAuth client."""
+    oauth = OAuth()
+    oauth.register(
+        name="google",
+        client_id=settings.GOOGLE_CLIENT_ID,
+        client_secret=settings.GOOGLE_CLIENT_SECRET,
+        server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
+        client_kwargs={"scope": "openid email profile"},
+    )
+    return oauth
 
 
-oauth = OAuth()
-
-oauth.register(
-    name="google",
-    client_id=settings.GOOGLE_CLIENT_ID,
-    client_secret=settings.GOOGLE_CLIENT_SECRET,
-    server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
-    client_kwargs={"scope": "openid email profile"},
-)
-
-
-def get_git_version():
+def get_git_version() -> str:
+    """Get the current git commit hash for versioning."""
     try:
         return (
-            subprocess.check_output(["git", "rev-parse", "--short", "HEAD"])
+            subprocess.check_output(
+                ["git", "rev-parse", "--short", "HEAD"],
+                stderr=subprocess.DEVNULL,
+            )
             .decode("utf-8")
             .strip()
         )
@@ -58,4 +113,7 @@ def get_git_version():
         return "unknown"
 
 
+# Legacy global instances - deprecated but maintained for backward compatibility
+settings = get_settings()
+oauth = get_oauth_client(settings)
 APP_VERSION = get_git_version()

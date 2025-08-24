@@ -4,15 +4,20 @@ Enhanced dependency injection patterns for better testability.
 """
 
 from collections.abc import Generator
+from datetime import datetime
 from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
 
 from mbl2pc.core.dependencies import get_current_user
-from mbl2pc.core.storage import get_db_table, get_s3_client
+from mbl2pc.core.storage import (
+    get_db_table,
+    get_message_repository,
+    get_s3_client,
+)
 from mbl2pc.main import app
-from mbl2pc.schemas import User
+from mbl2pc.schemas import Message, User
 
 MOCK_USER = User(sub="test-user-123", name="Test User", email="test@example.com")
 
@@ -84,6 +89,46 @@ class MockS3Client:
         # Simulate successful upload
 
 
+class MockMessageRepository:
+    """Mock message repository for testing."""
+
+    def __init__(self) -> None:
+        self._messages: list[Message] = [
+            Message(
+                id="1",
+                user_id="test-user-123",
+                sender="Test",
+                text="Hello",
+                timestamp=datetime.fromisoformat("2023-01-01T12:00:00"),
+            ),
+            Message(
+                id="2",
+                user_id="test-user-123",
+                sender="Other",
+                text="Hi",
+                timestamp=datetime.fromisoformat("2023-01-01T12:01:00"),
+            ),
+            Message(
+                id="3",
+                user_id="another-user",
+                sender="Other",
+                text="Different user message",
+                timestamp=datetime.fromisoformat("2023-01-01T12:02:00"),
+            ),
+        ]
+
+    async def add_message(self, message: Message) -> None:
+        """Mock add_message operation."""
+        print(f"Mock Repository: add_message({message})")
+        self._messages.append(message)
+
+    async def get_messages(self, user_id: str, limit: int = 100) -> list[Message]:
+        """Mock get_messages operation."""
+        print(f"Mock Repository: get_messages({user_id}, {limit})")
+        user_messages = [msg for msg in self._messages if msg.user_id == user_id]
+        return user_messages[:limit]
+
+
 @pytest.fixture
 def mock_db_table() -> MockDynamoDBTable:
     """Fixture providing a mock DynamoDB table."""
@@ -97,8 +142,16 @@ def mock_s3_client() -> MockS3Client:
 
 
 @pytest.fixture
+def mock_message_repository() -> MockMessageRepository:
+    """Fixture providing a mock message repository."""
+    return MockMessageRepository()
+
+
+@pytest.fixture
 def client(
-    mock_db_table: MockDynamoDBTable, mock_s3_client: MockS3Client
+    mock_db_table: MockDynamoDBTable,
+    mock_s3_client: MockS3Client,
+    mock_message_repository: MockMessageRepository,
 ) -> Generator[TestClient]:
     """
     Enhanced test client with AWS dependencies properly mocked
@@ -107,6 +160,7 @@ def client(
     # Override dependencies with our mocks
     app.dependency_overrides[get_db_table] = lambda: mock_db_table
     app.dependency_overrides[get_s3_client] = lambda: mock_s3_client
+    app.dependency_overrides[get_message_repository] = lambda: mock_message_repository
 
     test_client = TestClient(app)
     try:

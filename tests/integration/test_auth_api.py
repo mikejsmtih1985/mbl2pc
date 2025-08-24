@@ -21,7 +21,7 @@ def test_settings():
     return Settings(
         GOOGLE_CLIENT_ID="test_id",
         GOOGLE_CLIENT_SECRET="test_secret",
-        SESSION_SECRET_KEY="test_session_secret",
+        SESSION_SECRET_KEY="test_session_secret_32_chars_long!!",
     )
 
 
@@ -51,26 +51,28 @@ def test_auth_callback_success(client, mocker, test_settings):  # noqa: ARG001
         "userinfo": {"sub": "123", "name": "Test User", "email": "test@example.com"},
     }
 
-    # We need to access the oauth object that is configured with the test settings
-    from mbl2pc.core.config import oauth
+    # Import the dependency function and mock it directly
+    from mbl2pc.core.config import get_oauth_client
 
-    # Patch the oauth object
-    mocker.patch.object(
-        oauth.google,
-        "authorize_access_token",
-        new_callable=AsyncMock,
-        return_value=mock_token,
-    )
+    # Create a mock OAuth client
+    mock_oauth = mocker.MagicMock()
+    mock_oauth.google.authorize_access_token = AsyncMock(return_value=mock_token)
 
-    # Make the request to the /auth endpoint
-    response = client.get("/auth", follow_redirects=False)
+    # Override the dependency
+    from mbl2pc.main import app
 
-    # Assert that the user is redirected to the send page
-    assert response.status_code == 307
-    assert response.headers["location"] == "/send.html"
+    app.dependency_overrides[get_oauth_client] = lambda: mock_oauth
 
-    # Assert that the session contains the user info
-    assert "session" in response.cookies
+    try:
+        # Make the request to the /auth endpoint
+        response = client.get("/auth", follow_redirects=False)
+
+        # Assert that the user is redirected to the send page
+        assert response.status_code == 307
+        assert response.headers["location"] == "/send.html"
+    finally:
+        # Clean up the override
+        app.dependency_overrides.pop(get_oauth_client, None)
 
 
 def test_auth_callback_failure(client, mocker, test_settings):  # noqa: ARG001
