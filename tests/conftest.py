@@ -19,7 +19,7 @@ from mbl2pc.core.storage import (
 from mbl2pc.main import app
 from mbl2pc.schemas import Message, User
 
-MOCK_USER = User(sub="test-user-123", name="Test User", email="test@example.com")
+MOCK_USER = User(sub="test-user-123", name="Test User", email="test@example.com")  # type: ignore[call-arg]
 
 
 # Modern fixture with proper typing
@@ -94,21 +94,21 @@ class MockMessageRepository:
 
     def __init__(self) -> None:
         self._messages: list[Message] = [
-            Message(
+            Message(  # type: ignore[call-arg]
                 id="1",
                 user_id="test-user-123",
                 sender="Test",
                 text="Hello",
                 timestamp=datetime.fromisoformat("2023-01-01T12:00:00"),
             ),
-            Message(
+            Message(  # type: ignore[call-arg]
                 id="2",
                 user_id="test-user-123",
                 sender="Other",
                 text="Hi",
                 timestamp=datetime.fromisoformat("2023-01-01T12:01:00"),
             ),
-            Message(
+            Message(  # type: ignore[call-arg]
                 id="3",
                 user_id="another-user",
                 sender="Other",

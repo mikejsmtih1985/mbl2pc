@@ -1,0 +1,46 @@
+# Docker Compose for local development
+version: '3.8'
+
+services:
+  mbl2pc:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - SESSION_SECRET_KEY=${SESSION_SECRET_KEY}
+      - OAUTH_REDIRECT_URI=${OAUTH_REDIRECT_URI:-http://localhost:8000/auth}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - MBL2PC_DDB_TABLE=${MBL2PC_DDB_TABLE:-mbl2pc-messages-dev}
+      - S3_BUCKET=${S3_BUCKET:-mbl2pc-images-dev}
+    volumes:
+      - ./src:/app/src:ro  # Mount source for development
+      - ./static:/app/static:ro
+    env_file:
+      - .env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Optional: LocalStack for local AWS services development
+  localstack:
+    image: localstack/localstack:latest
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=dynamodb,s3
+      - DEBUG=1
+      - DATA_DIR=/tmp/localstack/data
+    volumes:
+      - "localstack_data:/tmp/localstack"
+    profiles:
+      - localdev
+
+volumes:
+  localstack_data:

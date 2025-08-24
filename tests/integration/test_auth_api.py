@@ -18,7 +18,7 @@ def client():
 
 @pytest.fixture
 def test_settings():
-    return Settings(
+    return Settings(  # type: ignore[call-arg]
         GOOGLE_CLIENT_ID="test_id",
         GOOGLE_CLIENT_SECRET="test_secret",
         SESSION_SECRET_KEY="test_session_secret_32_chars_long!!",
@@ -80,7 +80,7 @@ def test_auth_callback_failure(client, mocker, test_settings):  # noqa: ARG001
     Test the /auth callback with a failed token exchange.
     """
     # We need to access the oauth object that is configured with the test settings
-    from src.mbl2pc.core.config import oauth
+    from mbl2pc.core.config import oauth
 
     # Mock the OAuth client's fetch_token method to raise an exception
     mocker.patch.object(

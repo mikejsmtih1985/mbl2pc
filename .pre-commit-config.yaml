@@ -8,13 +8,6 @@ repos:
       - id: ruff-format
         exclude: ^node_modules/
 
-  # MyPy disabled in pre-commit - use 'make type-check' instead
-  # Complex module path issues with pre-commit environment
-  # - repo: https://github.com/pre-commit/mirrors-mypy
-  #   rev: v1.11.2
-  #   hooks:
-  #     - id: mypy
-
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
     hooks:

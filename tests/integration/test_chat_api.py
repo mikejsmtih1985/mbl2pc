@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from mbl2pc.schemas import User
 
 # --- Mock User ---
-MOCK_USER = User(sub="test-user-123", name="Test User", email="test@example.com")
+MOCK_USER = User(sub="test-user-123", name="Test User", email="test@example.com")  # type: ignore[call-arg]
 
 
 # --- Integration Tests: API + Dependencies ---

@@ -8,7 +8,7 @@ from typing import Annotated
 
 from authlib.integrations.starlette_client import OAuth
 from fastapi import Depends
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -77,6 +77,36 @@ class Settings(BaseSettings):
     def app_version(self) -> str:
         """Get the application version from git."""
         return get_git_version()
+
+    @field_validator("SESSION_SECRET_KEY")
+    @classmethod
+    def validate_session_secret_key(cls, v: str) -> str:
+        """Ensure session secret key is sufficiently secure."""
+        if len(v) < 32:
+            raise ValueError("SESSION_SECRET_KEY must be at least 32 characters long")
+        if v == "change-this-key-with-32-characters":
+            import warnings
+
+            warnings.warn(
+                "Using default SESSION_SECRET_KEY in production is insecure",
+                UserWarning,
+                stacklevel=2,
+            )
+        return v
+
+    @field_validator("GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET")
+    @classmethod
+    def validate_oauth_credentials(cls, v: str) -> str:
+        """Validate OAuth credentials are not using defaults in production."""
+        if v.startswith("test-"):
+            import warnings
+
+            warnings.warn(
+                "Using test OAuth credentials - ensure this is intentional",
+                UserWarning,
+                stacklevel=2,
+            )
+        return v
 
 
 @lru_cache
