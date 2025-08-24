@@ -1,0 +1,4 @@
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+base_url = "http://localhost:8000"
+asyncio_mode = "auto"
