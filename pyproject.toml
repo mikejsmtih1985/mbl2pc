@@ -1,0 +1,127 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mbl2pc"
+version = "0.1.0"
+description = "Send messages from my phone to my computer"
+requires-python = ">=3.13"
+dependencies = [
+  "fastapi",
+  "uvicorn[standard]",
+  "pydantic",
+  "pydantic-settings",
+  "boto3",
+  "python-multipart",
+  "authlib",
+  "itsdangerous",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pip-tools",
+  "ruff",
+  "pytest",
+  "pytest-asyncio",
+  "pytest-cov",
+  "pytest-mock",
+  "pytest-xprocess",
+  "pytest-base-url",
+  "pytest-playwright",
+  "pytest-xdist",             # Parallel test execution
+  "pytest-sugar",             # Better test output
+  "httpx",
+  "itsdangerous",
+  "fastapi",
+  "uvicorn[standard]",
+  "pydantic",
+  "pydantic-settings",
+  "boto3",
+  "boto3-stubs[dynamodb,s3]", # Type stubs for boto3
+  "types-Authlib",            # Type stubs for authlib
+  "python-multipart",
+  "authlib",
+  "mypy",                     # Static type checking
+  "pre-commit",               # Git hooks
+  "structlog",                # Structured logging
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py313"
+
+[tool.ruff.lint]
+# Enhanced rule set for Python 3.13
+select = [
+  "E",
+  "F",
+  "I",
+  "UP",
+  "B",
+  "A",
+  "C4",
+  "SIM",
+  "ARG",
+  "DTZ",
+  "RUF",   # Ruff-specific rules
+  "PT",    # pytest rules
+  "ASYNC", # async/await rules
+  "PERF",  # Performance rules
+  "FURB",  # Refurb rules for modernization
+]
+
+[tool.ruff.lint.per-file-ignores]
+"src/mbl2pc/api/*.py" = ["B008"]  # Allow FastAPI Depends() in function defaults
+"src/mbl2pc/core/*.py" = ["B008"] # Allow FastAPI Depends() in function defaults
+"src/mbl2pc/main.py" = ["B008"]   # Allow FastAPI Depends() in function defaults
+"tests/**/*.py" = ["S101"]        # Allow assert in tests
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.pytest.ini_options]
+python_files = "tests.py test_*.py *_test.py"
+asyncio_mode = "auto"
+base_url = "http://127.0.0.1:8000"
+# Modern pytest options
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = [
+  "--strict-markers",
+  "--strict-config",
+  "--cov=mbl2pc",
+  "--cov-report=term-missing",
+  "--cov-report=html",
+  "--cov-fail-under=65",
+]
+
+# Type checking with mypy
+[tool.mypy]
+python_version = "3.13"
+strict = false
+warn_return_any = false
+warn_unused_configs = true
+no_implicit_reexport = true
+check_untyped_defs = true
+namespace_packages = false
+mypy_path = "src"
+exclude = ["^node_modules/", "^build/", "^dist/"]
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["structlog.*", "xprocess.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "mbl2pc.*"
+ignore_missing_imports = false
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-dir]
+"" = "src"

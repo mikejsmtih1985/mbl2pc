@@ -1,10 +1,29 @@
 services:
   - type: web
     name: mbl2pc-fastapi
-    env: python
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: "uvicorn main:app --host 0.0.0.0 --port 10000"
+    runtime: python
+    buildCommand: "pip install -e ."
+    startCommand: "uvicorn src.mbl2pc.main:app --host 0.0.0.0 --port $PORT"
     plan: free
     envVars:
       - key: PORT
         value: 10000
+      - key: PYTHON_VERSION
+        value: "3.13"
+    # Add your production environment variables here:
+    # - key: GOOGLE_CLIENT_ID
+    #   value: your-google-client-id
+    # - key: GOOGLE_CLIENT_SECRET
+    #   value: your-google-client-secret
+    # - key: SESSION_SECRET_KEY
+    #   generateValue: true  # Render can generate secure random values
+    # - key: OAUTH_REDIRECT_URI
+    #   value: https://your-app-name.onrender.com/auth
+    # - key: AWS_ACCESS_KEY_ID
+    #   value: your-aws-access-key
+    # - key: AWS_SECRET_ACCESS_KEY
+    #   value: your-aws-secret-key
+    # - key: MBL2PC_DDB_TABLE
+    #   value: mbl2pc-messages-prod
+    # - key: S3_BUCKET
+    #   value: mbl2pc-images-prod

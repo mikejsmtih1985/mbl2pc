@@ -1,0 +1,9 @@
+# Production dependencies for mbl2pc
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+boto3
+python-multipart
+authlib
+itsdangerous
