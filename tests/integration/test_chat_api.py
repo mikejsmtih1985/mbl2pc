@@ -16,7 +16,7 @@ def test_send_message_integrates_with_auth_and_storage(
     authenticated_client: TestClient,
 ) -> None:
     """
-    Integration test: Verify that send message API properly integrates with 
+    Integration test: Verify that send message API properly integrates with
     authentication dependency and storage dependency.
     """
     response = authenticated_client.post(
@@ -57,7 +57,7 @@ def test_get_messages_integrates_with_auth_and_storage(
     response = authenticated_client.get("/messages")
     assert response.status_code == 200
     messages = response.json()["messages"]
-    
+
     # Verify all returned messages belong to the authenticated user
     for message in messages:
         # The mock storage returns messages for our test user
@@ -77,7 +77,7 @@ def test_authentication_dependency_integration(
         ("/send-image", "post", {"files": {"file": ("test.png", b"test", "image/png")}}),
         ("/messages", "get", {}),
     ]
-    
+
     for endpoint, method, kwargs in protected_endpoints:
         response = getattr(unauthenticated_client, method)(endpoint, **kwargs)
         assert response.status_code == 401

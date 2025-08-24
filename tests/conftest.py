@@ -22,7 +22,7 @@ def create_mock_user() -> User:
 
 class MockDynamoDBTable:
     """Mock DynamoDB table with proper typing and modern Python patterns."""
-    
+
     def __init__(self) -> None:
         self._items: List[Dict[str, Any]] = [
             {
@@ -33,7 +33,7 @@ class MockDynamoDBTable:
                 "timestamp": "2023-01-01T12:00:00",
             },
             {
-                "id": "2", 
+                "id": "2",
                 "user_id": "test-user-123",
                 "sender": "Other",
                 "text": "Hi",
@@ -47,13 +47,13 @@ class MockDynamoDBTable:
                 "timestamp": "2023-01-01T12:02:00",
             },
         ]
-    
+
     def put_item(self, Item: Dict[str, Any]) -> Dict[str, Any]:
         """Mock put_item operation."""
         print(f"Mock DynamoDB: put_item({Item})")
         self._items.append(Item)
         return {"ResponseMetadata": {"HTTPStatusCode": 200}}
-    
+
     def scan(self) -> Dict[str, Any]:
         """Mock scan operation."""
         print("Mock DynamoDB: scan()")
@@ -62,12 +62,12 @@ class MockDynamoDBTable:
 
 class MockS3Client:
     """Mock S3 client with proper typing and modern Python patterns."""
-    
+
     def upload_fileobj(
-        self, 
-        fileobj: Any, 
-        bucket: str, 
-        key: str, 
+        self,
+        fileobj: Any,
+        bucket: str,
+        key: str,
         ExtraArgs: Dict[str, Any] | None = None
     ) -> None:
         """Mock upload_fileobj operation."""
@@ -95,15 +95,15 @@ def client(mock_db_table: MockDynamoDBTable, mock_s3_client: MockS3Client) -> Te
     # Override dependencies with our mocks
     app.dependency_overrides[get_db_table] = lambda: mock_db_table
     app.dependency_overrides[get_s3_client] = lambda: mock_s3_client
-    
+
     test_client = TestClient(app)
     yield test_client
-    
+
     # Clean up dependency overrides
     app.dependency_overrides.clear()
 
 
-@pytest.fixture  
+@pytest.fixture
 def authenticated_client(client: TestClient) -> TestClient:
     """
     Test client with an authenticated user using dependency injection.

@@ -18,15 +18,15 @@ from ..schemas import Message
 
 class DynamoDBTableProtocol(Protocol):
     """Protocol for DynamoDB table operations."""
-    
+
     def put_item(self, Item: dict) -> dict:
         """Put an item into the table."""
         ...
-    
+
     def scan(self) -> dict:
         """Scan the table."""
         ...
-    
+
     def query(self, **kwargs) -> dict:
         """Query the table."""
         ...
@@ -34,7 +34,7 @@ class DynamoDBTableProtocol(Protocol):
 
 class S3ClientProtocol(Protocol):
     """Protocol for S3 client operations."""
-    
+
     def upload_fileobj(self, fileobj, bucket: str, key: str, ExtraArgs: dict | None = None) -> None:
         """Upload a file object to S3."""
         ...

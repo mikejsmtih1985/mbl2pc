@@ -10,7 +10,7 @@ from mbl2pc.api.chat import _guess_sender_from_ua
 
 class TestUserAgentDetection:
     """Unit tests for user agent detection logic."""
-    
+
     @pytest.mark.parametrize(
         "user_agent, expected_sender",
         [
@@ -55,13 +55,13 @@ class TestUserAgentDetection:
         """
         test_cases = [
             ("iphone", "unknown"),  # lowercase should not match
-            ("IPHONE", "unknown"),  # uppercase should not match  
+            ("IPHONE", "unknown"),  # uppercase should not match
             ("iPhone", "iPhone"),   # exact case should match
         ]
-        
+
         for user_agent, expected in test_cases:
             mock_request = Mock()
             mock_request.headers.get.return_value = f"Mozilla/5.0 ({user_agent})"
-            
+
             result = _guess_sender_from_ua(mock_request)
             assert result == expected

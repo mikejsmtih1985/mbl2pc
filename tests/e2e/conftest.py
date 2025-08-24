@@ -23,12 +23,12 @@ def web_server(xprocess):
             "-c",
             "import sys; sys.path.insert(0, 'src'); import uvicorn; uvicorn.run('mbl2pc.main:app', host='127.0.0.1', port=8000)"
         ]
-        
+
         env = os.environ.copy()
         # Set mock AWS environment variables to avoid credential issues
         env.update({
             "AWS_ACCESS_KEY_ID": "test",
-            "AWS_SECRET_ACCESS_KEY": "test", 
+            "AWS_SECRET_ACCESS_KEY": "test",
             "AWS_REGION": "us-east-1",
             "MBL2PC_DDB_TABLE": "test-table",
             "S3_BUCKET": "test-bucket",
