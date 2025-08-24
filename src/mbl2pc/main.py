@@ -7,16 +7,18 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from authlib.integrations.starlette_client import OAuth
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
 from mbl2pc.api import auth, chat
-from mbl2pc.core.config import APP_VERSION, settings
 from mbl2pc.core import storage
+from mbl2pc.core.config import APP_VERSION, settings
+
 from . import schemas
+
 
 # --- App Initialization ---
 @asynccontextmanager

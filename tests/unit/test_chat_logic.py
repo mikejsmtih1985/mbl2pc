@@ -4,7 +4,9 @@ These tests focus on isolated functions without dependencies.
 """
 
 from unittest.mock import Mock
+
 import pytest
+
 from mbl2pc.api.chat import _guess_sender_from_ua
 
 
@@ -56,7 +58,7 @@ class TestUserAgentDetection:
         test_cases = [
             ("iphone", "unknown"),  # lowercase should not match
             ("IPHONE", "unknown"),  # uppercase should not match
-            ("iPhone", "iPhone"),   # exact case should match
+            ("iPhone", "iPhone"),  # exact case should match
         ]
 
         for user_agent, expected in test_cases:

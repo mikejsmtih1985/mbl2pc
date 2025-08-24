@@ -2,14 +2,13 @@
 Integration tests for the authentication API endpoints.
 """
 
-import pytest
 from unittest.mock import AsyncMock
+
+import pytest
 from fastapi.testclient import TestClient
 
-from httpx import AsyncClient
-
 from mbl2pc.main import app
-from src.mbl2pc.core.config import get_settings, Settings
+from src.mbl2pc.core.config import Settings, get_settings
 
 
 @pytest.fixture
@@ -33,7 +32,7 @@ def override_settings(test_settings):
     app.dependency_overrides = {}
 
 
-def test_login_redirects(client, test_settings):
+def test_login_redirects(client, test_settings):  # noqa: ARG001
     """
     Test that the /login route redirects to the Google OAuth URL.
     """
@@ -42,7 +41,7 @@ def test_login_redirects(client, test_settings):
     assert "accounts.google.com" in response.headers["location"]
 
 
-def test_auth_callback_success(client, mocker, test_settings):
+def test_auth_callback_success(client, mocker, test_settings):  # noqa: ARG001
     """
     Test the /auth callback with a successful token exchange.
     """
@@ -74,7 +73,7 @@ def test_auth_callback_success(client, mocker, test_settings):
     assert "session" in response.cookies
 
 
-def test_auth_callback_failure(client, mocker, test_settings):
+def test_auth_callback_failure(client, mocker, test_settings):  # noqa: ARG001
     """
     Test the /auth callback with a failed token exchange.
     """

@@ -9,11 +9,10 @@ from typing import Protocol
 
 import boto3
 from boto3.dynamodb.conditions import Key
-from botocore.client import BaseClient
 from botocore.exceptions import ClientError
 
-from .config import settings
 from ..schemas import Message
+from .config import settings
 
 
 class DynamoDBTableProtocol(Protocol):
@@ -35,7 +34,9 @@ class DynamoDBTableProtocol(Protocol):
 class S3ClientProtocol(Protocol):
     """Protocol for S3 client operations."""
 
-    def upload_fileobj(self, fileobj, bucket: str, key: str, ExtraArgs: dict | None = None) -> None:
+    def upload_fileobj(
+        self, fileobj, bucket: str, key: str, ExtraArgs: dict | None = None
+    ) -> None:
         """Upload a file object to S3."""
         ...
 
@@ -94,7 +95,7 @@ def add_message(message: Message) -> None:
         Item={
             "pk": message.user_id,
             "sk": f"{now}#{uuid.uuid4()}",
-            "message": message.text if hasattr(message, 'text') else message.message,
+            "message": message.text if hasattr(message, "text") else message.message,
         }
     )
 

@@ -2,8 +2,8 @@
 Configuration for pytest with modern dependency injection patterns.
 """
 
-from typing import Any, Dict, List
-from unittest.mock import Mock
+from typing import Any
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -24,7 +24,7 @@ class MockDynamoDBTable:
     """Mock DynamoDB table with proper typing and modern Python patterns."""
 
     def __init__(self) -> None:
-        self._items: List[Dict[str, Any]] = [
+        self._items: list[dict[str, Any]] = [
             {
                 "id": "1",
                 "user_id": "test-user-123",
@@ -48,13 +48,13 @@ class MockDynamoDBTable:
             },
         ]
 
-    def put_item(self, Item: Dict[str, Any]) -> Dict[str, Any]:
+    def put_item(self, Item: dict[str, Any]) -> dict[str, Any]:
         """Mock put_item operation."""
         print(f"Mock DynamoDB: put_item({Item})")
         self._items.append(Item)
         return {"ResponseMetadata": {"HTTPStatusCode": 200}}
 
-    def scan(self) -> Dict[str, Any]:
+    def scan(self) -> dict[str, Any]:
         """Mock scan operation."""
         print("Mock DynamoDB: scan()")
         return {"Items": self._items}
@@ -65,10 +65,10 @@ class MockS3Client:
 
     def upload_fileobj(
         self,
-        fileobj: Any,
+        fileobj: Any,  # noqa: ARG002
         bucket: str,
         key: str,
-        ExtraArgs: Dict[str, Any] | None = None
+        ExtraArgs: dict[str, Any] | None = None,  # noqa: ARG002
     ) -> None:
         """Mock upload_fileobj operation."""
         print(f"Mock S3: upload_fileobj to {bucket}/{key}")
@@ -88,7 +88,9 @@ def mock_s3_client() -> MockS3Client:
 
 
 @pytest.fixture
-def client(mock_db_table: MockDynamoDBTable, mock_s3_client: MockS3Client) -> TestClient:
+def client(
+    mock_db_table: MockDynamoDBTable, mock_s3_client: MockS3Client
+) -> TestClient:
     """
     Test client with AWS dependencies properly mocked using dependency injection.
     """

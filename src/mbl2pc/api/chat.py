@@ -4,7 +4,7 @@ API endpoints for sending and retrieving messages and images.
 
 import os
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from botocore.exceptions import ClientError, NoCredentialsError
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
@@ -44,7 +44,7 @@ async def send_message(
     message = Message(
         sender=sender,
         text=msg,
-        timestamp=datetime.now().isoformat(timespec="seconds"),
+        timestamp=datetime.now(UTC).isoformat(timespec="seconds"),
         user_id=user.sub,
     )
 
@@ -54,7 +54,7 @@ async def send_message(
     try:
         table.put_item(Item=item)
     except ClientError as e:
-        raise HTTPException(status_code=500, detail=f"DynamoDB error: {e}")
+        raise HTTPException(status_code=500, detail=f"DynamoDB error: {e}") from e
 
     return {"status": "Message received"}
 
@@ -78,7 +78,7 @@ async def send_image(
     if ext not in [".jpg", ".jpeg", ".png", ".gif", ".webp"]:
         raise HTTPException(status_code=400, detail="Unsupported file type.")
 
-    fname = f"img_{datetime.now().strftime('%Y%m%d%H%M%S%f')}{ext}"
+    fname = f"img_{datetime.now(UTC).strftime('%Y%m%d%H%M%S%f')}{ext}"
 
     # Upload to S3
     try:
@@ -93,11 +93,11 @@ async def send_image(
     except NoCredentialsError:
         raise HTTPException(
             status_code=500, detail="AWS credentials not found for S3 upload."
-        )
+        ) from None
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Failed to upload image to S3: {e}"
-        )
+        ) from e
 
     if sender == "unknown":
         sender = _guess_sender_from_ua(request)
@@ -106,7 +106,7 @@ async def send_image(
         sender=sender,
         text=text,
         image_url=image_url,
-        timestamp=datetime.now().isoformat(timespec="seconds"),
+        timestamp=datetime.now(UTC).isoformat(timespec="seconds"),
         user_id=user.sub,
     )
 
@@ -116,7 +116,7 @@ async def send_image(
     try:
         table.put_item(Item=item)
     except ClientError as e:
-        raise HTTPException(status_code=500, detail=f"DynamoDB error: {e}")
+        raise HTTPException(status_code=500, detail=f"DynamoDB error: {e}") from e
 
     return {"status": "Image received", "image_url": image_url}
 
@@ -142,6 +142,6 @@ def get_messages(user: User = Depends(get_current_user), table=Depends(get_db_ta
             for item in user_items[:100]
         ]
     except ClientError as e:
-        raise HTTPException(status_code=500, detail=f"DynamoDB error: {e}")
+        raise HTTPException(status_code=500, detail=f"DynamoDB error: {e}") from e
 
     return {"messages": messages[::-1]}  # Return in chronological order

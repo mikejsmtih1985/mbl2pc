@@ -20,7 +20,7 @@ def get_current_user(request: Request) -> User:
         print(f"[ERROR] Exception accessing session: {e}", file=sys.stderr)
         raise HTTPException(
             status_code=500, detail="Internal server error accessing session."
-        )
+        ) from e
 
     if not user_data:
         raise HTTPException(

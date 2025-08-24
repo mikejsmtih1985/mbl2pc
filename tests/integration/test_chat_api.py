@@ -1,6 +1,7 @@
 """
-Integration tests for the Chat API endpoints - focuses on API + dependency integration.
-These tests verify that the API layer properly integrates with auth and storage dependencies.
+Integration tests for the Chat API endpoints - focuses on API + dependency
+integration. These tests verify that the API layer properly integrates with auth
+and storage dependencies.
 """
 
 from fastapi.testclient import TestClient
@@ -74,7 +75,11 @@ def test_authentication_dependency_integration(
     """
     protected_endpoints = [
         ("/send", "post", {"data": {"msg": "test"}}),
-        ("/send-image", "post", {"files": {"file": ("test.png", b"test", "image/png")}}),
+        (
+            "/send-image",
+            "post",
+            {"files": {"file": ("test.png", b"test", "image/png")}},
+        ),
         ("/messages", "get", {}),
     ]
 
