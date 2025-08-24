@@ -1,7 +1,9 @@
 """
-Configuration for pytest with modern dependency injection patterns.
+Modern pytest configuration with Python 3.13 features.
+Enhanced dependency injection patterns for better testability.
 """
 
+from collections.abc import Generator
 from typing import Any
 
 import pytest
@@ -13,6 +15,13 @@ from mbl2pc.main import app
 from mbl2pc.schemas import User
 
 MOCK_USER = User(sub="test-user-123", name="Test User", email="test@example.com")
+
+
+# Modern fixture with proper typing
+@pytest.fixture(scope="session")
+def anyio_backend() -> str:
+    """Use asyncio backend for async tests."""
+    return "asyncio"
 
 
 def create_mock_user() -> User:
@@ -90,37 +99,44 @@ def mock_s3_client() -> MockS3Client:
 @pytest.fixture
 def client(
     mock_db_table: MockDynamoDBTable, mock_s3_client: MockS3Client
-) -> TestClient:
+) -> Generator[TestClient]:
     """
-    Test client with AWS dependencies properly mocked using dependency injection.
+    Enhanced test client with AWS dependencies properly mocked
+    using dependency injection.
     """
     # Override dependencies with our mocks
     app.dependency_overrides[get_db_table] = lambda: mock_db_table
     app.dependency_overrides[get_s3_client] = lambda: mock_s3_client
 
     test_client = TestClient(app)
-    yield test_client
-
-    # Clean up dependency overrides
-    app.dependency_overrides.clear()
+    try:
+        yield test_client
+    finally:
+        # Explicit cleanup
+        app.dependency_overrides.clear()
 
 
 @pytest.fixture
-def authenticated_client(client: TestClient) -> TestClient:
+def authenticated_client(client: TestClient) -> Generator[TestClient]:
     """
     Test client with an authenticated user using dependency injection.
     """
     app.dependency_overrides[get_current_user] = create_mock_user
-    yield client
-    # Remove only the user override, keep others
-    app.dependency_overrides.pop(get_current_user, None)
+    try:
+        yield client
+    finally:
+        # Remove only the user override, keep others
+        app.dependency_overrides.pop(get_current_user, None)
 
 
 @pytest.fixture
-def unauthenticated_client(client: TestClient) -> TestClient:
+def unauthenticated_client(client: TestClient) -> Generator[TestClient]:
     """
     Test client without authentication - dependency injection ensures 401s.
     """
     # Ensure no user override is present
     app.dependency_overrides.pop(get_current_user, None)
-    yield client
+    try:
+        yield client
+    finally:
+        pass

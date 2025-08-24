@@ -119,6 +119,6 @@ def test_multi_message_conversation_workflow(authenticated_client: TestClient) -
             (msg for msg in messages if expected_msg["text"] in msg.get("text", "")),
             None,
         )
-        assert found_message is not None, (
-            f"Message '{expected_msg['text']}' should be in conversation"
-        )
+        assert (
+            found_message is not None
+        ), f"Message '{expected_msg['text']}' should be in conversation"

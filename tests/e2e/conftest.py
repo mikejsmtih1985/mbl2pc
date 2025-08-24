@@ -4,13 +4,14 @@ E2E test configuration.
 
 import os
 import sys
+from typing import ClassVar
 
 import pytest
 from xprocess import ProcessStarter
 
 
 @pytest.fixture(scope="session")
-def web_server(xprocess):
+def _web_server(xprocess):
     """
     Starts the web server as a background process for E2E tests.
     """
@@ -19,7 +20,7 @@ def web_server(xprocess):
         """Process starter for the Uvicorn server."""
 
         pattern = "Application startup complete"
-        args = [
+        args: ClassVar[list[str]] = [
             sys.executable,
             "-c",
             (

@@ -26,7 +26,7 @@ def test_settings():
 
 
 @pytest.fixture(autouse=True)
-def override_settings(test_settings):
+def _override_settings(test_settings):
     app.dependency_overrides[get_settings] = lambda: test_settings
     yield
     app.dependency_overrides = {}

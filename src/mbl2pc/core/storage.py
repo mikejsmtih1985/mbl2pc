@@ -3,9 +3,11 @@ Handles interactions with AWS services like DynamoDB and S3.
 Uses dependency injection for better testability.
 """
 
+import contextlib
 import datetime
 import uuid
-from typing import Protocol
+from collections.abc import AsyncGenerator
+from typing import Any, Protocol, runtime_checkable
 
 import boto3
 from boto3.dynamodb.conditions import Key
@@ -15,27 +17,33 @@ from ..schemas import Message
 from .config import settings
 
 
+@runtime_checkable
 class DynamoDBTableProtocol(Protocol):
-    """Protocol for DynamoDB table operations."""
+    """Enhanced protocol for DynamoDB table operations with runtime checking."""
 
-    def put_item(self, Item: dict) -> dict:
+    def put_item(self, Item: dict[str, Any]) -> dict[str, Any]:
         """Put an item into the table."""
         ...
 
-    def scan(self) -> dict:
+    def scan(self, **kwargs: Any) -> dict[str, Any]:
         """Scan the table."""
         ...
 
-    def query(self, **kwargs) -> dict:
+    def query(self, **kwargs: Any) -> dict[str, Any]:
         """Query the table."""
         ...
 
 
+@runtime_checkable
 class S3ClientProtocol(Protocol):
-    """Protocol for S3 client operations."""
+    """Enhanced protocol for S3 client operations with runtime checking."""
 
     def upload_fileobj(
-        self, fileobj, bucket: str, key: str, ExtraArgs: dict | None = None
+        self,
+        fileobj: Any,
+        bucket: str,
+        key: str,
+        ExtraArgs: dict[str, Any] | None = None,
     ) -> None:
         """Upload a file object to S3."""
         ...
@@ -70,6 +78,29 @@ def get_s3_client() -> S3ClientProtocol:
     except ClientError as e:
         print(f"Error getting S3 client: {e}")
         raise
+
+
+# Modern async context manager for resources
+@contextlib.asynccontextmanager
+async def get_db_table_context() -> AsyncGenerator[DynamoDBTableProtocol]:
+    """Async context manager for DynamoDB table with proper cleanup."""
+    table = get_db_table()
+    try:
+        yield table
+    finally:
+        # Cleanup if needed
+        pass
+
+
+@contextlib.asynccontextmanager
+async def get_s3_client_context() -> AsyncGenerator[S3ClientProtocol]:
+    """Async context manager for S3 client with proper cleanup."""
+    client = get_s3_client()
+    try:
+        yield client
+    finally:
+        # Cleanup if needed
+        pass
 
 
 # Legacy session-based approach (maintained for backward compatibility)

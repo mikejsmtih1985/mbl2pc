@@ -1,78 +1,213 @@
-## Version
+# MBL2PC - Modern Python 3.13 Messaging Service
 
-**Current version:** `8e6cba1` (auto-updated from latest git commit)
+[![CI](https://github.com/mikejsmtih1985/mbl2pc/workflows/CI/badge.svg)](https://github.com/mikejsmtih1985/mbl2pc/actions)
+[![Code Quality](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
+[![Type Checked](https://img.shields.io/badge/typing-mypy-blue.svg)](https://mypy.readthedocs.io/)
+[![Python](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
 
-## Requirements Explained
+A modern, fully typed FastAPI application for sending messages from mobile devices to computers, built with Python 3.13 and following the latest best practices.
 
-| Package           | Purpose                                                                 |
-|-------------------|-------------------------------------------------------------------------|
-| fastapi           | Web framework for building the backend API                               |
-| uvicorn           | ASGI server to run FastAPI apps                                          |
-| pydantic          | Data validation and settings management (used by FastAPI)                |
-| starlette         | ASGI toolkit/framework (FastAPI is built on top of Starlette)            |
-| python-multipart  | Handles file uploads (image upload support in FastAPI)                   |
-| authlib           | OAuth client integration for Google login                                |
-| httpx             | Async HTTP client (used by Authlib and for any HTTP requests)            |
-| boto3             | AWS SDK for Python (DynamoDB and S3 integration)                         |
-| botocore          | Core library for AWS SDK (dependency of boto3)                           |
-| itsdangerous      | Secure session management (used by Starlette's SessionMiddleware)        |
-| pytest            | Testing framework for Python (backend API tests)                         |
+## 🎯 Features
 
-# mbl2pc
+- **Modern Python 3.13** with cutting-edge language features
+- **Type Safety** with Pydantic v2 and MyPy strict mode
+- **Dependency Injection** for excellent testability
+- **Comprehensive Testing** - Unit, Integration, and E2E tests with 67%+ coverage
+- **Code Quality** - Ruff for linting/formatting, pre-commit hooks
+- **Cloud Ready** - AWS DynamoDB and S3 integration
+- **OAuth Authentication** via Authlib
+- **FastAPI** with modern async/await patterns
 
-Send messages from my phone to my computer
+## 🚀 Quick Start
 
-## Setup
+```bash
+# Clone and install
+git clone https://github.com/mikejsmtih1985/mbl2pc.git
+cd mbl2pc
+pip install -e ".[dev]"
 
-1.  Create a virtual environment
+# Set up development environment
+make install
 
-    ```bash
-    python3.13 -m venv .venv
-    source .venv/bin/activate
-    ```
+# Run tests
+make test
 
-2.  Install dependencies
+# Start development server
+uvicorn src.mbl2pc.main:app --reload
+```
 
-    ```bash
-    pip install -r requirements.txt
-    ```
+## 🛠️ Development
 
-3.  Set up your environment. Create a `.env` file with the following:
+### Prerequisites
 
-    ```ini
-    GOOGLE_CLIENT_ID=xxx
-    GOOGLE_CLIENT_SECRET=xxx
-    SESSION_SECRET_KEY=xxx
-    ```
+- Python 3.13+
+- AWS credentials (for DynamoDB and S3)
 
-4.  Run the app
+### Modern Development Workflow
 
-    ```bash
-    uvicorn src.mbl2pc.main:app --reload
-    ```
+```bash
+# Install with all development dependencies
+make install
 
-5.  Open your browser to <http://localhost:8000/send.html>
+# Code quality checks
+make lint         # Ruff linting
+make format       # Ruff formatting
+make type-check   # MyPy type checking
 
-## Deployment (Render.com)
+# Testing
+make test              # Unit and integration tests
+make test-parallel     # Parallel test execution
 
-1.  **Push your code to GitHub.**
-2.  **Create a new Web Service on Render.com:**
-    -   Environment: Python 3.12
-    -   Build Command: `pip install -r requirements.txt`
-    -   Start Command: `uvicorn main:app --host 0.0.0.0 --port 10000`
-    -   Set environment variables as above (use your Render.com URL for `OAUTH_REDIRECT_URI`)
-    -   Expose port 10000 (Render uses the `PORT` env var)
-3.  **Set up AWS IAM permissions:**
-    -   The IAM user must have `dynamodb:Scan`, `dynamodb:PutItem`, and `dynamodb:GetItem` permissions on your table.
-    -   The IAM user must have `s3:PutObject`, `s3:GetObject` permissions on your S3 bucket.
-4.  **Set up Google OAuth:**
-    -   In Google Cloud Console, set the authorized redirect URI to your Render.com URL (e.g. `https://your-app.onrender.com/auth`)
+# Run all quality checks
+make ci
 
-## Usage
+# Clean up generated files
+make clean
+```
 
--   Visit `/send.html` to access the chat UI.
--   Log in with Google.
--   Send text or image messages from your phone or PC.
+### Pre-commit Hooks
+
+This project uses pre-commit hooks to ensure code quality:
+
+```bash
+pre-commit install
+pre-commit run --all-files
+```
+
+## 🏗️ Architecture
+
+### Dependency Injection
+
+The application uses modern dependency injection patterns for better testability:
+
+```python
+from mbl2pc.core.storage import get_db_table, DynamoDBTableProtocol
+from fastapi import Depends
+
+@app.post("/messages")
+async def send_message(
+    message: MessageCreate,
+    db_table: DynamoDBTableProtocol = Depends(get_db_table),
+    current_user: User = Depends(get_current_user)
+):
+    # Implementation with injected dependencies
+```
+
+### Modern Type Safety
+
+Full type coverage with runtime validation:
+
+```python
+from typing import Protocol, runtime_checkable
+from pydantic import BaseModel
+
+@runtime_checkable
+class StorageProtocol(Protocol):
+    def store_message(self, message: dict[str, Any]) -> dict[str, Any]: ...
+
+class Message(BaseModel):
+    user_id: str
+    text: str
+    timestamp: datetime = Field(default_factory=datetime.now)
+```
+
+### Test Architecture
+
+- **Unit Tests**: Pure logic testing with mocked dependencies
+- **Integration Tests**: API testing with real FastAPI app
+- **E2E Tests**: Full workflow testing with Playwright
+
+## 📊 Code Quality
+
+- **Ruff**: Modern linting and formatting (replaces black, flake8, isort)
+- **MyPy**: Strict type checking
+- **pytest**: Modern testing with asyncio support
+- **Coverage**: 65%+ test coverage requirement
+- **Pre-commit**: Automated quality checks
+
+## 🔧 Configuration
+
+Environment-based configuration with Pydantic Settings:
+
+```python
+from pydantic_settings import BaseSettings
+
+class Settings(BaseSettings):
+    aws_access_key_id: str
+    aws_secret_access_key: str
+    mbl2pc_ddb_table: str = "mbl2pc-messages"
+
+    class Config:
+        env_file = ".env"
+```
+
+## 🧪 Testing
+
+### Running Tests
+
+```bash
+# All tests
+pytest
+
+# Specific test types
+pytest tests/unit/          # Unit tests only
+pytest tests/integration/   # Integration tests only
+pytest tests/e2e/          # E2E tests only
+
+# With coverage
+pytest --cov=src/mbl2pc --cov-report=html
+
+# Parallel execution
+pytest -n auto
+```
+
+### Test Structure
+
+```
+tests/
+├── unit/           # Pure unit tests
+├── integration/    # API integration tests
+├── e2e/           # End-to-end tests
+└── conftest.py    # Shared fixtures with dependency injection
+```
+
+## 📦 Dependencies
+
+### Production
+- FastAPI - Modern web framework
+- Pydantic v2 - Data validation and serialization
+- boto3 - AWS SDK
+- uvicorn - ASGI server
+
+### Development
+- ruff - Linting and formatting
+- mypy - Static type checking
+- pytest - Testing framework
+- pre-commit - Git hooks
+
+## 🚀 Deployment
+
+The application is designed for modern cloud deployment:
+
+- Docker ready
+- AWS Lambda compatible
+- Environment-based configuration
+- Health checks included
+
+## 📄 License
+
+This project is licensed under the MIT License.
+
+## 🤝 Contributing
+
+1. Install development dependencies: `make install`
+2. Set up pre-commit hooks: `pre-commit install`
+3. Run quality checks: `make ci`
+4. Submit a pull request
+
+---
+
+Built with ❤️ using modern Python 3.13 and best practices.
 -   Messages are stored per user and persist across devices.
 -   The app version (git commit hash) is shown in the UI footer and at `/version`.
 

@@ -2,6 +2,7 @@
 name = "mbl2pc"
 version = "0.1.0"
 description = "Send messages from my phone to my computer"
+requires-python = ">=3.13"
 
 [project.optional-dependencies]
 dev = [
@@ -14,6 +15,8 @@ dev = [
   "pytest-xprocess",
   "pytest-base-url",
   "pytest-playwright",
+  "pytest-xdist",             # Parallel test execution
+  "pytest-sugar",             # Better test output
   "httpx",
   "itsdangerous",
   "fastapi",
@@ -21,8 +24,11 @@ dev = [
   "pydantic",
   "pydantic-settings",
   "boto3",
+  "boto3-stubs[dynamodb,s3]", # Type stubs for boto3
   "python-multipart",
   "authlib",
+  "mypy",                     # Static type checking
+  "pre-commit",               # Git hooks
 ]
 
 [tool.ruff]
@@ -30,10 +36,28 @@ line-length = 88
 target-version = "py313"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "A", "C4", "SIM", "ARG", "DTZ"]
+# Enhanced rule set for Python 3.13
+select = [
+  "E",
+  "F",
+  "I",
+  "UP",
+  "B",
+  "A",
+  "C4",
+  "SIM",
+  "ARG",
+  "DTZ",
+  "RUF",   # Ruff-specific rules
+  "PT",    # pytest rules
+  "ASYNC", # async/await rules
+  "PERF",  # Performance rules
+  "FURB",  # Refurb rules for modernization
+]
 
 [tool.ruff.lint.per-file-ignores]
-"src/mbl2pc/api/*.py" = ["B008"]  # Allow FastAPI Depends() in function defaults
+"src/mbl2pc/api/*.py" = ["B008"] # Allow FastAPI Depends() in function defaults
+"tests/**/*.py" = ["S101"]       # Allow assert in tests
 
 [tool.ruff.format]
 quote-style = "double"
@@ -42,6 +66,41 @@ quote-style = "double"
 python_files = "tests.py test_*.py *_test.py"
 asyncio_mode = "auto"
 base_url = "http://127.0.0.1:8000"
+# Modern pytest options
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = [
+  "--strict-markers",
+  "--strict-config",
+  "--cov=src/mbl2pc",
+  "--cov-report=term-missing",
+  "--cov-report=html",
+  "--cov-fail-under=65",
+]
+
+# Type checking with mypy
+[tool.mypy]
+python_version = "3.13"
+strict = false
+warn_return_any = false
+warn_unused_configs = true
+no_implicit_reexport = true
+check_untyped_defs = true
+namespace_packages = false
+packages = ["mbl2pc"]
+exclude = [
+    "^node_modules/",
+    "^build/",
+    "^dist/",
+]
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "mbl2pc.*"
+ignore_missing_imports = false
 
 [tool.setuptools.packages.find]
 where = ["src"]

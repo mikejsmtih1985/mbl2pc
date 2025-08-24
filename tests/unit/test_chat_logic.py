@@ -14,7 +14,7 @@ class TestUserAgentDetection:
     """Unit tests for user agent detection logic."""
 
     @pytest.mark.parametrize(
-        "user_agent, expected_sender",
+        ("user_agent", "expected_sender"),
         [
             ("Mozilla/5.0 (iPhone; CPU iPhone OS 13_5 like Mac OS X)", "iPhone"),
             ("Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36", "Android"),
