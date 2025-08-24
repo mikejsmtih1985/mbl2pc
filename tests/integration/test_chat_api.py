@@ -1,5 +1,5 @@
 """
-Pytest tests for the Chat API endpoints.
+Integration tests for the Chat API endpoints using modern dependency injection.
 """
 
 from fastapi.testclient import TestClient
@@ -11,17 +11,17 @@ MOCK_USER = User(sub="test-user-123", name="Test User", email="test@example.com"
 
 
 # --- Tests ---
-def test_send_message_unauthenticated(client: TestClient):
+def test_send_message_unauthenticated(unauthenticated_client: TestClient) -> None:
     """
     Tests that an unauthenticated user cannot send a message.
     """
-    response = client.post(
+    response = unauthenticated_client.post(
         "/send", data={"msg": "Hello from test!", "sender": "tester"}
     )
     assert response.status_code == 401
 
 
-def test_send_message_authenticated(authenticated_client: TestClient):
+def test_send_message_authenticated(authenticated_client: TestClient) -> None:
     """
     Tests that an authenticated user can successfully send a message.
     """
@@ -32,12 +32,12 @@ def test_send_message_authenticated(authenticated_client: TestClient):
     assert response.json() == {"status": "Message received"}
 
 
-def test_send_image_unauthenticated(client: TestClient):
+def test_send_image_unauthenticated(unauthenticated_client: TestClient) -> None:
     """
     Tests that an unauthenticated user cannot upload an image.
     """
     with open("static/send.html", "rb") as f:  # Using a dummy file for the test
-        response = client.post(
+        response = unauthenticated_client.post(
             "/send-image",
             files={"file": ("test.png", f, "image/png")},
             data={"text": "A test image"},
@@ -45,7 +45,7 @@ def test_send_image_unauthenticated(client: TestClient):
     assert response.status_code == 401
 
 
-def test_send_image_authenticated(authenticated_client: TestClient):
+def test_send_image_authenticated(authenticated_client: TestClient) -> None:
     """
     Tests that an authenticated user can successfully upload an image.
     """
@@ -63,15 +63,15 @@ def test_send_image_authenticated(authenticated_client: TestClient):
     )
 
 
-def test_get_messages_unauthenticated(client: TestClient):
+def test_get_messages_unauthenticated(unauthenticated_client: TestClient) -> None:
     """
     Tests that an unauthenticated user receives a 401 error.
     """
-    response = client.get("/messages")
+    response = unauthenticated_client.get("/messages")
     assert response.status_code == 401
 
 
-def test_get_messages_authenticated(authenticated_client: TestClient):
+def test_get_messages_authenticated(authenticated_client: TestClient) -> None:
     """
     Tests that an authenticated user can retrieve their messages.
     The mock table returns messages for multiple users, so we test

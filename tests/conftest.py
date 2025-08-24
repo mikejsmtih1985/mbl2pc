@@ -1,7 +1,9 @@
 """
-Configuration for pytest.
+Configuration for pytest with modern dependency injection patterns.
 """
 
+from typing import Any, Dict, List
+from unittest.mock import Mock
 import pytest
 from fastapi.testclient import TestClient
 
@@ -13,92 +15,110 @@ from mbl2pc.schemas import User
 MOCK_USER = User(sub="test-user-123", name="Test User", email="test@example.com")
 
 
-def override_get_current_user():
-    """
-    Mock dependency to override get_current_user.
-    """
+def create_mock_user() -> User:
+    """Factory function to create mock authenticated user."""
     return MOCK_USER
 
 
-class MockBoto3Table:
-    """A mock class for boto3's DynamoDB Table resource."""
-
-    def put_item(self, Item):
+class MockDynamoDBTable:
+    """Mock DynamoDB table with proper typing and modern Python patterns."""
+    
+    def __init__(self) -> None:
+        self._items: List[Dict[str, Any]] = [
+            {
+                "id": "1",
+                "user_id": "test-user-123",
+                "sender": "Test",
+                "text": "Hello",
+                "timestamp": "2023-01-01T12:00:00",
+            },
+            {
+                "id": "2", 
+                "user_id": "test-user-123",
+                "sender": "Other",
+                "text": "Hi",
+                "timestamp": "2023-01-01T12:01:00",
+            },
+            {
+                "id": "3",
+                "user_id": "another-user",
+                "sender": "Other",
+                "text": "Different user message",
+                "timestamp": "2023-01-01T12:02:00",
+            },
+        ]
+    
+    def put_item(self, Item: Dict[str, Any]) -> Dict[str, Any]:
+        """Mock put_item operation."""
         print(f"Mock DynamoDB: put_item({Item})")
-        pass  # No-op for testing
-
-    def scan(self):
+        self._items.append(Item)
+        return {"ResponseMetadata": {"HTTPStatusCode": 200}}
+    
+    def scan(self) -> Dict[str, Any]:
+        """Mock scan operation."""
         print("Mock DynamoDB: scan()")
-        return {
-            "Items": [
-                {
-                    "id": "1",
-                    "user_id": "test-user-123",
-                    "sender": "Test",
-                    "text": "Hello",
-                    "timestamp": "2023-01-01T12:00:00",
-                },
-                {
-                    "id": "2",
-                    "user_id": "test-user-123",
-                    "sender": "Other",
-                    "text": "Hi",
-                    "timestamp": "2023-01-01T12:01:00",
-                },
-                {
-                    "id": "3",
-                    "user_id": "another-user",
-                    "sender": "Other",
-                    "text": "Hi",
-                    "timestamp": "2023-01-01T12:01:00",
-                },
-            ]
-        }
+        return {"Items": self._items}
 
 
-class MockBoto3S3:
-    """A mock class for the boto3 S3 client."""
-
-    def upload_fileobj(self, file, bucket, key, ExtraArgs):
+class MockS3Client:
+    """Mock S3 client with proper typing and modern Python patterns."""
+    
+    def upload_fileobj(
+        self, 
+        fileobj: Any, 
+        bucket: str, 
+        key: str, 
+        ExtraArgs: Dict[str, Any] | None = None
+    ) -> None:
+        """Mock upload_fileobj operation."""
         print(f"Mock S3: upload_fileobj to {bucket}/{key}")
-        pass  # No-op
-
-
-def override_get_db_table():
-    """Override dependency to return a mock DynamoDB table."""
-    return MockBoto3Table()
-
-
-def override_get_s3_client():
-    """Override dependency to return a mock S3 client."""
-    return MockBoto3S3()
+        # Simulate successful upload
 
 
 @pytest.fixture
-def client():
+def mock_db_table() -> MockDynamoDBTable:
+    """Fixture providing a mock DynamoDB table."""
+    return MockDynamoDBTable()
+
+
+@pytest.fixture
+def mock_s3_client() -> MockS3Client:
+    """Fixture providing a mock S3 client."""
+    return MockS3Client()
+
+
+@pytest.fixture
+def client(mock_db_table: MockDynamoDBTable, mock_s3_client: MockS3Client) -> TestClient:
     """
-    Returns a test client with AWS dependencies mocked.
+    Test client with AWS dependencies properly mocked using dependency injection.
     """
-    app.dependency_overrides[get_db_table] = override_get_db_table
-    app.dependency_overrides[get_s3_client] = override_get_s3_client
-    client = TestClient(app)
+    # Override dependencies with our mocks
+    app.dependency_overrides[get_db_table] = lambda: mock_db_table
+    app.dependency_overrides[get_s3_client] = lambda: mock_s3_client
+    
+    test_client = TestClient(app)
+    yield test_client
+    
+    # Clean up dependency overrides
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture  
+def authenticated_client(client: TestClient) -> TestClient:
+    """
+    Test client with an authenticated user using dependency injection.
+    """
+    app.dependency_overrides[get_current_user] = create_mock_user
     yield client
-    app.dependency_overrides = {}
+    # Remove only the user override, keep others
+    app.dependency_overrides.pop(get_current_user, None)
 
 
 @pytest.fixture
-def authenticated_client(client):
+def unauthenticated_client(client: TestClient) -> TestClient:
     """
-    Returns a test client with an authenticated user.
+    Test client without authentication - dependency injection ensures 401s.
     """
-    app.dependency_overrides[get_current_user] = override_get_current_user
-    yield client
-    del app.dependency_overrides[get_current_user]
-
-
-@pytest.fixture
-def unauthenticated_client(client):
-    """
-    Returns a test client without any authenticated user.
-    """
+    # Ensure no user override is present
+    app.dependency_overrides.pop(get_current_user, None)
     yield client
