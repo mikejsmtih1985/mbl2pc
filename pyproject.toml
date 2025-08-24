@@ -1,4 +1,14 @@
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP"]
+ignore = ["E501"]
+
+[tool.ruff.format]
+quote-style = "double"
+
 [tool.pytest.ini_options]
-pythonpath = ["src"]
+pythonpath = ["src", "."]
 base_url = "http://localhost:8000"
 asyncio_mode = "auto"

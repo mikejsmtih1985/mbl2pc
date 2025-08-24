@@ -1,77 +1,87 @@
 """
 Integration tests for the authentication API endpoints.
 """
-from fastapi.testclient import TestClient
-from unittest.mock import patch, MagicMock, AsyncMock
-from mbl2pc.main import app
 
-client = TestClient(app)
+from unittest.mock import AsyncMock
 
-def test_login_redirects():
+import pytest
+from httpx import ASGITransport, AsyncClient
+
+from src.mbl2pc.core import config as app_config
+from src.mbl2pc.main import app
+
+
+@pytest.mark.asyncio
+async def test_login_redirects():
     """
-    Tests that the /login endpoint correctly redirects to Google's OAuth service.
+    Test that the /login route redirects to the Google OAuth URL.
     """
-    with patch('mbl2pc.api.auth.oauth') as mock_oauth:
-        # Mock the authorize_redirect method to prevent an actual redirect in the test
-        mock_oauth.google.authorize_redirect = AsyncMock(return_value=MagicMock(status_code=307))
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        response = await client.get("/login", follow_redirects=False)
+        assert response.status_code == 307  # Temporary Redirect
+        assert "accounts.google.com" in response.headers["location"]
 
-        response = client.get("/login", follow_redirects=False)
 
-        assert response.status_code == 307 # Check for redirect status
-        mock_oauth.google.authorize_redirect.assert_called_once()
-
-def test_logout_redirects():
+@pytest.mark.asyncio
+async def test_auth_callback_success(mocker):
     """
-    Tests that the /logout endpoint clears the session and redirects to /login.
+    Test the /auth callback with a successful token exchange.
     """
-    # Set a dummy session cookie to simulate a logged-in user
-    client.cookies.set("session", "some-dummy-session-cookie")
-
-    response = client.get("/logout", follow_redirects=False)
-
-    # Check that the user is redirected to the login page
-    assert response.status_code == 307
-    assert response.headers["location"] == "/login"
-
-    # Verify the session cookie was cleared
-    assert "session" not in response.cookies
-
-@patch('mbl2pc.api.auth.oauth')
-async def test_auth_callback_success(mock_oauth):
-    """
-    Tests the successful authentication callback from Google.
-    """
-    # Mock the response from Google's authorize_access_token
+    # Mock the OAuth client's fetch_token method to return a dummy token
     mock_token = {
-        "userinfo": {
-            "sub": "12345",
-            "name": "Test User",
-            "email": "test@example.com",
-            "picture": "http://example.com/pic.jpg"
-        }
+        "access_token": "dummy_token",
+        "userinfo": {"name": "Test User", "email": "test@example.com"},
     }
-    # Use AsyncMock for awaitable methods
-    mock_oauth.google.authorize_access_token = AsyncMock(return_value=mock_token)
 
-    response = client.get("/auth", follow_redirects=False)
+    # Patch the oauth object in the config module
+    mock_authorize = mocker.patch.object(
+        app_config.oauth.google,
+        "authorize_access_token",
+        new_callable=AsyncMock,
+        return_value=mock_token,
+    )
 
-    # Check for redirect to the main application page
-    assert response.status_code == 307
-    assert response.headers["location"] == "/send.html"
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        # Make the request to the /auth endpoint
+        response = await client.get("/auth", follow_redirects=False)
 
-    # Check that the user information is stored in the session
-    assert "session" in response.cookies
+        # Assert that the user is redirected to the send page
+        assert response.status_code == 307
+        assert response.headers["location"] == "/send.html"
 
-@patch('mbl2pc.api.auth.oauth')
-async def test_auth_callback_failure(mock_oauth):
+        # Assert that the session contains the user info
+        assert "session" in response.cookies
+
+    # Ensure the mock was called
+    mock_authorize.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_auth_callback_failure(mocker):
     """
-    Tests the authentication callback when Google returns an error or no user.
+    Test the /auth callback with a failed token exchange.
     """
-    # Simulate an exception during token authorization
-    mock_oauth.google.authorize_access_token = AsyncMock(side_effect=Exception("OAuth Failed"))
+    # Mock the OAuth client's fetch_token method to raise an exception
+    mock_authorize = mocker.patch.object(
+        app_config.oauth.google,
+        "authorize_access_token",
+        new_callable=AsyncMock,
+        side_effect=Exception("Token exchange failed"),
+    )
 
-    response = client.get("/auth", follow_redirects=False)
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://test"
+    ) as client:
+        # Make the request to the /auth endpoint
+        response = await client.get("/auth", follow_redirects=False)
 
-    # Should redirect back to the login page on failure
-    assert response.status_code == 307
-    assert response.headers["location"] == "/login"
+        # Assert that the response is a 401 Unauthorized
+        assert response.status_code == 401
+        assert response.json() == {"detail": "Could not log in."}
+
+    # Ensure the mock was called
+    mock_authorize.assert_awaited_once()

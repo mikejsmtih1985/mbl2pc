@@ -1,7 +1,9 @@
 """
 Pydantic schemas for data validation and serialization.
 """
+
 from pydantic import BaseModel
+
 
 class Message(BaseModel):
     sender: str
@@ -9,6 +11,7 @@ class Message(BaseModel):
     image_url: str = ""
     timestamp: str
     user_id: str
+
 
 class User(BaseModel):
     sub: str
