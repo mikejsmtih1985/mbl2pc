@@ -7,8 +7,8 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi.testclient import TestClient
 
+from mbl2pc.core.config import Settings, get_settings
 from mbl2pc.main import app
-from src.mbl2pc.core.config import Settings, get_settings
 
 
 @pytest.fixture
@@ -26,7 +26,7 @@ def test_settings():
 
 
 @pytest.fixture(autouse=True)
-def _override_settings(test_settings):
+def override_settings(test_settings):
     app.dependency_overrides[get_settings] = lambda: test_settings
     yield
     app.dependency_overrides = {}

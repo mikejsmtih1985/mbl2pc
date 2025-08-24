@@ -1,8 +1,22 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "mbl2pc"
 version = "0.1.0"
 description = "Send messages from my phone to my computer"
 requires-python = ">=3.13"
+dependencies = [
+  "fastapi",
+  "uvicorn[standard]",
+  "pydantic",
+  "pydantic-settings",
+  "boto3",
+  "python-multipart",
+  "authlib",
+  "itsdangerous",
+]
 
 [project.optional-dependencies]
 dev = [
@@ -72,7 +86,7 @@ testpaths = ["tests"]
 addopts = [
   "--strict-markers",
   "--strict-config",
-  "--cov=src/mbl2pc",
+  "--cov=mbl2pc",
   "--cov-report=term-missing",
   "--cov-report=html",
   "--cov-fail-under=65",
@@ -104,3 +118,6 @@ ignore_missing_imports = false
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-dir]
+"" = "src"

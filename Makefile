@@ -5,10 +5,10 @@ install:
 	pre-commit install
 
 test:
-	PYTHONPATH=src pytest -xvs --cov=src/mbl2pc
+	pytest -xvs --cov=mbl2pc
 
 test-parallel:
-	PYTHONPATH=src pytest -n auto --cov=src/mbl2pc
+	pytest -n auto --cov=mbl2pc
 
 lint:
 	ruff check .
@@ -17,7 +17,7 @@ format:
 	ruff format .
 
 type-check:
-	mypy src/mbl2pc --no-namespace-packages
+	mypy src/
 
 pre-commit:
 	pre-commit run --all-files

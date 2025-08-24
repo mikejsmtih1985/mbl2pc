@@ -11,7 +11,7 @@ from xprocess import ProcessStarter
 
 
 @pytest.fixture(scope="session")
-def _web_server(xprocess):
+def web_server(xprocess):
     """
     Starts the web server as a background process for E2E tests.
     """
