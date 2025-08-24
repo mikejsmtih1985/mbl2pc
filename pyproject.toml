@@ -1,14 +1,42 @@
+[project]
+name = "mbl2pc"
+version = "0.1.0"
+description = "Send messages from my phone to my computer"
+
+[project.optional-dependencies]
+dev = [
+  "pip-tools",
+  "ruff",
+  "pytest",
+  "pytest-asyncio",
+  "pytest-cov",
+  "pytest-mock",
+  "pytest-xprocess",
+  "pytest-base-url",
+  "pytest-playwright",
+  "httpx",
+  "itsdangerous",
+  "fastapi",
+  "uvicorn[standard]",
+  "pydantic",
+  "pydantic-settings",
+  "boto3",
+  "python-multipart",
+  "authlib",
+]
+
 [tool.ruff]
 line-length = 88
-
-[tool.ruff.lint]
-select = ["E", "F", "W", "I", "UP"]
-ignore = ["E501"]
+select = ["E", "F", "I", "UP", "B", "A", "C4", "SIM", "ARG", "DTZ"]
+target-version = "py313"
 
 [tool.ruff.format]
 quote-style = "double"
 
 [tool.pytest.ini_options]
-pythonpath = ["src", "."]
-base_url = "http://localhost:8000"
+python_files = "tests.py test_*.py *_test.py"
 asyncio_mode = "auto"
+base_url = "http://127.0.0.1:8000"
+
+[tool.setuptools.packages.find]
+where = ["src"]

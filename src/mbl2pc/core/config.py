@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_SECRET: str = ""
     SESSION_SECRET_KEY: str = "change-this-key"
     AWS_REGION: str = "us-east-1"
+    AWS_ACCESS_KEY_ID: str | None = None
+    AWS_SECRET_ACCESS_KEY: str | None = None
+    AWS_SESSION_TOKEN: str | None = None
     MBL2PC_DDB_TABLE: str = "mbl2pc-messages"
     S3_BUCKET: str = "mbl2pc-images"
     DYNAMODB_ENDPOINT_URL: str | None = None

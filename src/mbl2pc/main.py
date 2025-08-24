@@ -3,19 +3,29 @@ Main FastAPI application startup, middleware configuration, and router inclusion
 """
 
 import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from authlib.integrations.starlette_client import OAuth
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
-from src.mbl2pc.api import auth, chat
-from src.mbl2pc.core.config import APP_VERSION, settings
+from mbl2pc.api import auth, chat
+from mbl2pc.core.config import APP_VERSION, settings
+from mbl2pc.core import storage
+from . import schemas
 
 # --- App Initialization ---
-app = FastAPI(title="mbl2pc", version=APP_VERSION)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    app.state.db = storage.get_db()
+    yield
+
+
+app = FastAPI(title="mbl2pc", version=APP_VERSION, lifespan=lifespan)
 
 # --- Middleware ---
 # CORS for frontend access
@@ -45,8 +55,11 @@ app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 # --- Root and Version Endpoints ---
 @app.get("/")
-def read_root():
-    return {"message": "Hello from mbl2pc!"}
+def read_root(request: Request):
+    user = request.session.get("user")
+    if user:
+        return HTMLResponse('<h1>Hello</h1> <a href="/logout">logout</a>')
+    return HTMLResponse('<a href="/login">login</a>')
 
 
 @app.get("/version")
@@ -64,3 +77,52 @@ def serve_send_html(request: Request):
     if not request.session.get("user"):
         return RedirectResponse("/login")
     return FileResponse("static/send.html")
+
+
+# --- OAuth2 with Google ---
+oauth = OAuth()
+oauth.register(
+    name="google",
+    server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
+    client_id=settings.GOOGLE_CLIENT_ID,
+    client_secret=settings.GOOGLE_CLIENT_SECRET,
+    client_kwargs={"scope": "openid email profile"},
+)
+
+
+@app.get("/login")
+async def login(request: Request):
+    redirect_uri = request.url_for("auth")
+    return await oauth.google.authorize_redirect(request, redirect_uri)
+
+
+@app.get("/auth")
+async def auth(request: Request):
+    token = await oauth.google.authorize_access_token(request)
+    user = token["userinfo"]
+    request.session["user"] = user
+    return RedirectResponse(url="/")
+
+
+@app.get("/logout")
+def logout(request: Request):
+    request.session.pop("user", None)
+    return RedirectResponse(url="/")
+
+
+@app.get("/messages", response_model=list[schemas.Message])
+def get_messages(request: Request):
+    user = request.session.get("user")
+    if not user:
+        return []
+    return storage.get_messages(user["email"])
+
+
+@app.post("/messages")
+def post_message(message: schemas.Message, request: Request):
+    user = request.session.get("user")
+    if not user:
+        return {"status": "error", "message": "not logged in"}
+    message.user_id = user["email"]
+    storage.add_message(message)
+    return {"status": "ok"}

@@ -6,7 +6,9 @@ import pytest
 from unittest.mock import AsyncMock
 from fastapi.testclient import TestClient
 
-from src.mbl2pc.main import app
+from httpx import AsyncClient
+
+from mbl2pc.main import app
 from src.mbl2pc.core.config import get_settings, Settings
 
 

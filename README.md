@@ -1,4 +1,3 @@
-
 ## Version
 
 **Current version:** `8e6cba1` (auto-updated from latest git commit)
@@ -21,78 +20,74 @@
 
 # mbl2pc
 
-mbl2pc is a cloud-based chat app that lets you send text and image messages from your phone to your PC (or vice versa) using a FastAPI backend, Google OAuth login, and AWS DynamoDB for persistent, per-user chat history. The app is designed for free hosting on Render.com.
+Send messages from my phone to my computer
 
-## Features
-- Google OAuth login (secure, per-user chat)
-- Send and receive text messages
-- Upload and send images with optional captions
-- Persistent chat history stored in DynamoDB
-- Responsive web UI (works on mobile and desktop)
+## Setup
 
-## Prerequisites
-- Python 3.12.3
-- AWS account with DynamoDB table (default: `mbl2pc-messages`)
-- Google Cloud project with OAuth 2.0 credentials
-- (For deployment) Render.com account
+1.  Create a virtual environment
 
-## Local Development
-1. **Clone the repo:**
-	```bash
-	git clone https://github.com/mikejsmtih1985/mbl2pc.git
-	cd mbl2pc
-	```
-2. **Install dependencies:**
-	```bash
-	python3.12 -m venv .venv
-	source .venv/bin/activate
-	pip install -r requirements.txt
-	```
-3. **Set environment variables:**
-	- `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`: from Google Cloud Console
-	- `OAUTH_REDIRECT_URI`: e.g. `http://localhost:8000/auth` (for local dev)
-	- `SESSION_SECRET_KEY`: any random string
-	- `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`: for DynamoDB and S3 access
-	- `AWS_REGION`: e.g. `us-east-2`
-	- `MBL2PC_DDB_TABLE`: (optional) DynamoDB table name
-	- `S3_BUCKET`: (optional) S3 bucket for image storage
-4. **Run the app:**
-	```bash
-	uvicorn main:app --reload
-	```
-5. **Open in browser:**
-	- Go to `http://localhost:8000/send.html`
+    ```bash
+    python3.13 -m venv .venv
+    source .venv/bin/activate
+    ```
+
+2.  Install dependencies
+
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+3.  Set up your environment. Create a `.env` file with the following:
+
+    ```ini
+    GOOGLE_CLIENT_ID=xxx
+    GOOGLE_CLIENT_SECRET=xxx
+    SESSION_SECRET_KEY=xxx
+    ```
+
+4.  Run the app
+
+    ```bash
+    uvicorn src.mbl2pc.main:app --reload
+    ```
+
+5.  Open your browser to <http://localhost:8000/send.html>
 
 ## Deployment (Render.com)
-1. **Push your code to GitHub.**
-2. **Create a new Web Service on Render.com:**
-	- Environment: Python 3.12
-	- Build Command: `pip install -r requirements.txt`
-	- Start Command: `uvicorn main:app --host 0.0.0.0 --port 10000`
-	- Set environment variables as above (use your Render.com URL for `OAUTH_REDIRECT_URI`)
-	- Expose port 10000 (Render uses the `PORT` env var)
-3. **Set up AWS IAM permissions:**
-	- The IAM user must have `dynamodb:Scan`, `dynamodb:PutItem`, and `dynamodb:GetItem` permissions on your table.
-	- The IAM user must have `s3:PutObject`, `s3:GetObject` permissions on your S3 bucket.
-4. **Set up Google OAuth:**
-	- In Google Cloud Console, set the authorized redirect URI to your Render.com URL (e.g. `https://your-app.onrender.com/auth`)
+
+1.  **Push your code to GitHub.**
+2.  **Create a new Web Service on Render.com:**
+    -   Environment: Python 3.12
+    -   Build Command: `pip install -r requirements.txt`
+    -   Start Command: `uvicorn main:app --host 0.0.0.0 --port 10000`
+    -   Set environment variables as above (use your Render.com URL for `OAUTH_REDIRECT_URI`)
+    -   Expose port 10000 (Render uses the `PORT` env var)
+3.  **Set up AWS IAM permissions:**
+    -   The IAM user must have `dynamodb:Scan`, `dynamodb:PutItem`, and `dynamodb:GetItem` permissions on your table.
+    -   The IAM user must have `s3:PutObject`, `s3:GetObject` permissions on your S3 bucket.
+4.  **Set up Google OAuth:**
+    -   In Google Cloud Console, set the authorized redirect URI to your Render.com URL (e.g. `https://your-app.onrender.com/auth`)
 
 ## Usage
-- Visit `/send.html` to access the chat UI.
-- Log in with Google.
-- Send text or image messages from your phone or PC.
-- Messages are stored per user and persist across devices.
-- The app version (git commit hash) is shown in the UI footer and at `/version`.
+
+-   Visit `/send.html` to access the chat UI.
+-   Log in with Google.
+-   Send text or image messages from your phone or PC.
+-   Messages are stored per user and persist across devices.
+-   The app version (git commit hash) is shown in the UI footer and at `/version`.
 
 ## Testing
-- Backend: Run `pytest` to test API endpoints.
-- Frontend: Playwright tests are included for public and error routes.
+
+-   Backend: Run `pytest` to test API endpoints.
+-   Frontend: Playwright tests are included for public and error routes.
 
 ## File Structure
-- `main.py` — FastAPI backend, OAuth, DynamoDB integration
-- `static/send.html` — Chat UI (HTML/JS/CSS)
-- `requirements.txt` — Python dependencies
-- `render.yaml` — Render.com deployment config
+
+-   `main.py` — FastAPI backend, OAuth, DynamoDB integration
+-   `static/send.html` — Chat UI (HTML/JS/CSS)
+-   `requirements.txt` — Python dependencies
+-   `render.yaml` — Render.com deployment config
 
 ## License
+
 MIT

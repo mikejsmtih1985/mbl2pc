@@ -1,51 +1,104 @@
-import shutil
-from pathlib import Path
+"""
+Configuration for pytest.
+"""
 
 import pytest
-from dotenv import load_dotenv
-from xprocess import ProcessStarter
+from fastapi.testclient import TestClient
 
-# Load environment variables from .env.local
-# This needs to be done before the application is imported.
-load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env.local")
+from mbl2pc.core.dependencies import get_current_user
+from mbl2pc.core.storage import get_db_table, get_s3_client
+from mbl2pc.main import app
+from mbl2pc.schemas import User
+
+MOCK_USER = User(sub="test-user-123", name="Test User", email="test@example.com")
 
 
-@pytest.fixture(scope="session")
-def web_server(xprocess):
+def override_get_current_user():
     """
-    Fixture to run the Uvicorn web server in the background for E2E tests.
+    Mock dependency to override get_current_user.
     """
-    # Find the absolute path to the uvicorn executable in the current venv
-    uvicorn_path = shutil.which("uvicorn")
-    if not uvicorn_path:
-        pytest.fail("uvicorn executable not found in PATH")
+    return MOCK_USER
 
-    project_root = Path(__file__).parent.parent
 
-    class Starter(ProcessStarter):
-        # Command to start the server
-        pattern = "Application startup complete"
-        args = [
-            uvicorn_path,
-            "mbl2pc.main:app",
-            "--host",
-            "127.0.0.1",
-            "--port",
-            "8000",
-        ]
-        # Set the PYTHONPATH and test environment variables
-        env = {
-            "PYTHONPATH": str(project_root / "src"),
-            "GOOGLE_CLIENT_ID": "test_id",
-            "GOOGLE_CLIENT_SECRET": "test_secret",
-            "SESSION_SECRET_KEY": "test_session_secret",
+class MockBoto3Table:
+    """A mock class for boto3's DynamoDB Table resource."""
+
+    def put_item(self, Item):
+        print(f"Mock DynamoDB: put_item({Item})")
+        pass  # No-op for testing
+
+    def scan(self):
+        print("Mock DynamoDB: scan()")
+        return {
+            "Items": [
+                {
+                    "id": "1",
+                    "user_id": "test-user-123",
+                    "sender": "Test",
+                    "text": "Hello",
+                    "timestamp": "2023-01-01T12:00:00",
+                },
+                {
+                    "id": "2",
+                    "user_id": "test-user-123",
+                    "sender": "Other",
+                    "text": "Hi",
+                    "timestamp": "2023-01-01T12:01:00",
+                },
+                {
+                    "id": "3",
+                    "user_id": "another-user",
+                    "sender": "Other",
+                    "text": "Hi",
+                    "timestamp": "2023-01-01T12:01:00",
+                },
+            ]
         }
-        popen_kwargs = {"cwd": str(project_root)}
 
-    # Start the server and wait for it to be ready
-    xprocess.ensure("web_server", Starter)
 
-    yield
+class MockBoto3S3:
+    """A mock class for the boto3 S3 client."""
 
-    # Teardown: stop the server
-    xprocess.getinfo("web_server").terminate()
+    def upload_fileobj(self, file, bucket, key, ExtraArgs):
+        print(f"Mock S3: upload_fileobj to {bucket}/{key}")
+        pass  # No-op
+
+
+def override_get_db_table():
+    """Override dependency to return a mock DynamoDB table."""
+    return MockBoto3Table()
+
+
+def override_get_s3_client():
+    """Override dependency to return a mock S3 client."""
+    return MockBoto3S3()
+
+
+@pytest.fixture
+def client():
+    """
+    Returns a test client with AWS dependencies mocked.
+    """
+    app.dependency_overrides[get_db_table] = override_get_db_table
+    app.dependency_overrides[get_s3_client] = override_get_s3_client
+    client = TestClient(app)
+    yield client
+    app.dependency_overrides = {}
+
+
+@pytest.fixture
+def authenticated_client(client):
+    """
+    Returns a test client with an authenticated user.
+    """
+    app.dependency_overrides[get_current_user] = override_get_current_user
+    yield client
+    del app.dependency_overrides[get_current_user]
+
+
+@pytest.fixture
+def unauthenticated_client(client):
+    """
+    Returns a test client without any authenticated user.
+    """
+    yield client
