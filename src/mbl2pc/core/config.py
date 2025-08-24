@@ -14,8 +14,8 @@ class Settings(BaseSettings):
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )
 
-    GOOGLE_CLIENT_ID: str
-    GOOGLE_CLIENT_SECRET: str
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""
     SESSION_SECRET_KEY: str = "change-this-key"
     AWS_REGION: str = "us-east-1"
     MBL2PC_DDB_TABLE: str = "mbl2pc-messages"

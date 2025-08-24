@@ -27,16 +27,20 @@ def web_server(xprocess):
         pattern = "Application startup complete"
         args = [
             uvicorn_path,
-            "src.mbl2pc.main:app",
+            "mbl2pc.main:app",
             "--host",
             "127.0.0.1",
             "--port",
             "8000",
-            "--env-file",
-            str(project_root / ".env.test"),
         ]
-        # Set the PYTHONPATH to the project root
-        env = {"PYTHONPATH": str(project_root)}
+        # Set the PYTHONPATH and test environment variables
+        env = {
+            "PYTHONPATH": str(project_root / "src"),
+            "GOOGLE_CLIENT_ID": "test_id",
+            "GOOGLE_CLIENT_SECRET": "test_secret",
+            "SESSION_SECRET_KEY": "test_session_secret",
+        }
+        popen_kwargs = {"cwd": str(project_root)}
 
     # Start the server and wait for it to be ready
     xprocess.ensure("web_server", Starter)
