@@ -5,7 +5,7 @@ API endpoints for authentication (Login, Logout, OAuth callback).
 from fastapi import APIRouter, Request
 from starlette.responses import JSONResponse, RedirectResponse
 
-from src.mbl2pc.core.config import oauth, settings
+from mbl2pc.core.config import oauth, settings
 
 router = APIRouter()
 

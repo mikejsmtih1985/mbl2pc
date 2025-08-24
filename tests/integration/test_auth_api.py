@@ -52,7 +52,7 @@ def test_auth_callback_success(client, mocker, test_settings):  # noqa: ARG001
     }
 
     # We need to access the oauth object that is configured with the test settings
-    from src.mbl2pc.core.config import oauth
+    from mbl2pc.core.config import oauth
 
     # Patch the oauth object
     mocker.patch.object(

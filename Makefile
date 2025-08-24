@@ -17,7 +17,7 @@ format:
 	ruff format .
 
 type-check:
-	mypy src/
+	mypy src
 
 pre-commit:
 	pre-commit run --all-files

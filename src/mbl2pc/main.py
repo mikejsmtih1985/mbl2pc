@@ -6,7 +6,6 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from authlib.integrations.starlette_client import OAuth
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
@@ -15,7 +14,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from mbl2pc.api import auth, chat
 from mbl2pc.core import storage
-from mbl2pc.core.config import APP_VERSION, settings
+from mbl2pc.core.config import APP_VERSION, oauth, settings
 
 from . import schemas
 
@@ -81,25 +80,14 @@ def serve_send_html(request: Request):
     return FileResponse("static/send.html")
 
 
-# --- OAuth2 with Google ---
-oauth = OAuth()
-oauth.register(
-    name="google",
-    server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
-    client_id=settings.GOOGLE_CLIENT_ID,
-    client_secret=settings.GOOGLE_CLIENT_SECRET,
-    client_kwargs={"scope": "openid email profile"},
-)
-
-
 @app.get("/login")
 async def login(request: Request):
-    redirect_uri = request.url_for("auth")
+    redirect_uri = request.url_for("auth_callback")
     return await oauth.google.authorize_redirect(request, redirect_uri)
 
 
 @app.get("/auth")
-async def auth(request: Request):
+async def auth_callback(request: Request):
     token = await oauth.google.authorize_access_token(request)
     user = token["userinfo"]
     request.session["user"] = user

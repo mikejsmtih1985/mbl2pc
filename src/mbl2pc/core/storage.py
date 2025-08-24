@@ -13,23 +13,23 @@ import boto3
 from boto3.dynamodb.conditions import Key
 from botocore.exceptions import ClientError
 
-from ..schemas import Message
-from .config import settings
+from mbl2pc.core.config import settings
+from mbl2pc.schemas import Message
 
 
 @runtime_checkable
 class DynamoDBTableProtocol(Protocol):
     """Enhanced protocol for DynamoDB table operations with runtime checking."""
 
-    def put_item(self, Item: dict[str, Any]) -> dict[str, Any]:
+    def put_item(self, **kwargs: Any) -> Any:
         """Put an item into the table."""
         ...
 
-    def scan(self, **kwargs: Any) -> dict[str, Any]:
+    def scan(self, **kwargs: Any) -> Any:
         """Scan the table."""
         ...
 
-    def query(self, **kwargs: Any) -> dict[str, Any]:
+    def query(self, **kwargs: Any) -> Any:
         """Query the table."""
         ...
 
@@ -49,7 +49,7 @@ class S3ClientProtocol(Protocol):
         ...
 
 
-def get_db_table() -> DynamoDBTableProtocol:
+def get_db_table() -> Any:
     """
     Returns a DynamoDB table resource with dependency injection support.
     """
@@ -65,7 +65,7 @@ def get_db_table() -> DynamoDBTableProtocol:
         raise
 
 
-def get_s3_client() -> S3ClientProtocol:
+def get_s3_client() -> Any:
     """
     Returns an S3 client with dependency injection support.
     """
@@ -112,7 +112,7 @@ session = boto3.Session(
 )
 
 
-def get_legacy_db() -> DynamoDBTableProtocol:
+def get_legacy_db() -> Any:
     """Legacy function for getting database table."""
     dynamodb = session.resource("dynamodb")
     return dynamodb.Table(settings.MBL2PC_DDB_TABLE)
@@ -126,7 +126,7 @@ def add_message(message: Message) -> None:
         Item={
             "pk": message.user_id,
             "sk": f"{now}#{uuid.uuid4()}",
-            "message": message.text if hasattr(message, "text") else message.message,
+            "message": message.text,
         }
     )
 
@@ -136,7 +136,12 @@ def get_messages(user_id: str) -> list[Message]:
     table = get_legacy_db()
     response = table.query(KeyConditionExpression=Key("pk").eq(user_id))
     return [
-        Message(user_id=item["pk"], text=item.get("message", ""))
+        Message(
+            user_id=item["pk"],
+            text=item.get("message", ""),
+            sender="unknown",
+            timestamp="",
+        )
         for item in response["Items"]
     ]
 
