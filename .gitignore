@@ -26,10 +26,3 @@ test-results/
 .idea/
 *.sublime-project
 *.sublime-workspace
-
-# Playwright
-playwright-report/
-
-# Node
-node_modules/
-package-lock.json
