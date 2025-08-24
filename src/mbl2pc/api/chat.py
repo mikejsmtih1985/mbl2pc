@@ -19,7 +19,7 @@ router = APIRouter()
 
 def _guess_sender_from_ua(request: Request) -> str:
     """Determines the sender type based on the User-Agent header."""
-    ua = request.headers.get("user-agent", "")
+    ua = request.headers.get("user-agent", "") or ""  # Handle None values
     if "iPhone" in ua:
         return "iPhone"
     elif "Android" in ua:

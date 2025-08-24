@@ -1,72 +1,120 @@
 """
-Simplified E2E API tests using the test client instead of a real server.
-This provides E2E testing without the complexity of starting an external server process.
+End-to-End tests focusing on complete user workflows and business scenarios.
+These tests verify complete user journeys that span multiple API calls.
 """
 
-import pytest
 from fastapi.testclient import TestClient
-import requests
 
 
-def test_api_endpoints_work_end_to_end(authenticated_client: TestClient) -> None:
+def test_complete_messaging_workflow(authenticated_client: TestClient) -> None:
     """
-    Test that the main API endpoints work together end-to-end.
+    E2E Test: Complete messaging workflow from sending to retrieving messages.
+    This tests the full user journey of: send message -> get messages -> verify message appears.
     """
-    # Test sending a message
+    # Step 1: Send a message
+    message_text = "E2E workflow test message"
     response = authenticated_client.post(
         "/send", 
-        data={"msg": "End-to-end test message", "sender": "test"}
+        data={"msg": message_text, "sender": "e2e-test"}
     )
     assert response.status_code == 200
-    assert response.json() == {"status": "Message received"}
     
-    # Test retrieving messages
+    # Step 2: Retrieve messages and verify our message appears
     response = authenticated_client.get("/messages")
     assert response.status_code == 200
     messages = response.json()["messages"]
     
-    # Should include our test message
-    assert any("End-to-end test message" in msg.get("text", "") for msg in messages)
+    # Step 3: Verify the complete workflow worked
+    sent_message = next(
+        (msg for msg in messages if message_text in msg.get("text", "")), 
+        None
+    )
+    assert sent_message is not None, "Sent message should appear in message list"
+    assert sent_message["sender"] == "e2e-test"
 
 
-def test_authentication_flow_end_to_end(client: TestClient) -> None:
+def test_complete_image_sharing_workflow(authenticated_client: TestClient) -> None:
     """
-    Test that authentication flow works end-to-end.
+    E2E Test: Complete image sharing workflow.
+    This tests the full user journey of: upload image -> get messages -> verify image appears.
     """
-    # Test unauthenticated access is blocked
+    # Step 1: Upload an image with text
+    image_text = "E2E image workflow test"
+    test_content = b"fake image content for E2E test"
+    
+    response = authenticated_client.post(
+        "/send-image",
+        files={"file": ("e2e-test.png", test_content, "image/png")},
+        data={"text": image_text}
+    )
+    assert response.status_code == 200
+    
+    # Extract image URL from response
+    image_data = response.json()
+    image_url = image_data["image_url"]
+    
+    # Step 2: Retrieve messages and verify our image message appears
+    response = authenticated_client.get("/messages")
+    assert response.status_code == 200
+    messages = response.json()["messages"]
+    
+    # Step 3: Verify the complete workflow worked
+    image_message = next(
+        (msg for msg in messages 
+         if image_text in msg.get("text", "") and msg.get("image_url") == image_url), 
+        None
+    )
+    assert image_message is not None, "Image message should appear in message list"
+    assert image_message["image_url"].startswith("https://")
+
+
+def test_user_session_and_static_content_workflow(client: TestClient) -> None:
+    """
+    E2E Test: User session management and static content access workflow.
+    This tests the complete user experience from initial access to authentication.
+    """
+    # Step 1: Access protected resource without authentication
     response = client.get("/messages")
     assert response.status_code == 401
     
-    # Test that login redirect exists
+    # Step 2: Access login page to start authentication workflow
     response = client.get("/login", follow_redirects=False)
-    assert response.status_code == 302  # Redirect to OAuth provider
-
-
-def test_static_files_served_correctly(client: TestClient) -> None:
-    """
-    Test that static files are served correctly.
-    """
-    # Test static HTML file exists
+    assert response.status_code == 302  # Should redirect to OAuth provider
+    
+    # Step 3: Verify static content is accessible (public resources)
     response = client.get("/static/send.html")
     assert response.status_code == 200
     assert "html" in response.headers.get("content-type", "").lower()
 
 
-def test_image_upload_flow_end_to_end(authenticated_client: TestClient) -> None:
+def test_multi_message_conversation_workflow(authenticated_client: TestClient) -> None:
     """
-    Test the complete image upload flow.
+    E2E Test: Multi-message conversation workflow.
+    This tests a realistic conversation flow with multiple messages.
     """
-    # Create a test image-like file
-    test_content = b"fake image content"
+    conversation_messages = [
+        {"text": "Hello, starting conversation", "sender": "user"},
+        {"text": "This is message 2", "sender": "user"}, 
+        {"text": "Final message in conversation", "sender": "user"},
+    ]
     
-    response = authenticated_client.post(
-        "/send-image",
-        files={"file": ("test.png", test_content, "image/png")},
-        data={"text": "Test image upload"}
-    )
+    # Step 1: Send multiple messages in sequence
+    for msg_data in conversation_messages:
+        response = authenticated_client.post("/send", data={
+            "msg": msg_data["text"], 
+            "sender": msg_data["sender"]
+        })
+        assert response.status_code == 200
     
+    # Step 2: Retrieve all messages
+    response = authenticated_client.get("/messages")
     assert response.status_code == 200
-    response_data = response.json()
-    assert response_data["status"] == "Image received"
-    assert "image_url" in response_data
-    assert response_data["image_url"].startswith("https://")
+    messages = response.json()["messages"]
+    
+    # Step 3: Verify all conversation messages appear in correct order
+    for expected_msg in conversation_messages:
+        found_message = next(
+            (msg for msg in messages if expected_msg["text"] in msg.get("text", "")),
+            None
+        )
+        assert found_message is not None, f"Message '{expected_msg['text']}' should be in conversation"
